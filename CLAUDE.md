@@ -41,6 +41,14 @@ src/
 - `buildODataFilter()` 정적 메서드로 document_list의 `$filter` 파라미터 생성
 - `postFormData()` 메서드: FormData를 넘기면 Content-Type 헤더를 자동으로 omit (브라우저가 multipart boundary 자동 설정)
 
+## 환경변수
+
+| 변수 | 필수 | 설명 |
+|------|------|------|
+| `MODUSIGN_EMAIL` | ✅ | 모두싸인 계정 이메일 |
+| `MODUSIGN_API_KEY` | ✅ | 모두싸인 API KEY |
+| `MODUSIGN_BASE_URL` | ❌ | API Base URL (기본값: `https://api.modusign.co.kr`) |
+
 ## 주요 API 제약사항 (라이브 테스트 확인)
 
 - **`document_get_signing_url`**: `SECURE_LINK` 방식 참여자 전용. EMAIL/KAKAO 방식에 호출하면 422 반환.

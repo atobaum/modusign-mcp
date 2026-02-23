@@ -73,6 +73,7 @@ npm run build
 |------|------|------|
 | `MODUSIGN_EMAIL` | ✅ | 모두싸인 계정 이메일 |
 | `MODUSIGN_API_KEY` | ✅ | 모두싸인 API KEY |
+| `MODUSIGN_BASE_URL` | ❌ | API Base URL (기본값: `https://api.modusign.co.kr`) |
 
 ## 사용 가능한 Tool 목록
 

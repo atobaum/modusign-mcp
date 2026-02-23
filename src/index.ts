@@ -24,7 +24,7 @@ if (!email || !apiKey) {
   process.exit(1);
 }
 
-const client = new ModusignClient(email, apiKey);
+const client = new ModusignClient(email, apiKey, process.env.MODUSIGN_BASE_URL);
 
 const server = new McpServer({
   name: 'modusign-mcp',

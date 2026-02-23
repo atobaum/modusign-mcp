@@ -1,6 +1,6 @@
 import { ModusignApiError } from '../utils/errors.js';
 
-const BASE_URL = 'https://api.modusign.co.kr';
+const DEFAULT_BASE_URL = 'https://api.modusign.co.kr';
 const MAX_RETRIES = 3;
 
 interface RequestOptions {
@@ -11,10 +11,12 @@ interface RequestOptions {
 
 export class ModusignClient {
   private readonly authHeader: string;
+  private readonly baseUrl: string;
 
-  constructor(email: string, apiKey: string) {
+  constructor(email: string, apiKey: string, baseUrl?: string) {
     const credentials = Buffer.from(`${email}:${apiKey}`).toString('base64');
     this.authHeader = `Basic ${credentials}`;
+    this.baseUrl = baseUrl ?? DEFAULT_BASE_URL;
   }
 
   async get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
@@ -72,7 +74,7 @@ export class ModusignClient {
     options: RequestOptions = {},
     retries: number = MAX_RETRIES,
   ): Promise<T> {
-    const url = new URL(path, BASE_URL);
+    const url = new URL(path, this.baseUrl);
 
     if (options.params) {
       for (const [key, value] of Object.entries(options.params)) {
