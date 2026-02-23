@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## API 문서
+
+https://developers.modusign.co.kr/reference
+
 ## Commands
 
 ```bash

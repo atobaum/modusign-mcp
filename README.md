@@ -3,9 +3,11 @@
 모두싸인(Modusign) 전자계약 서비스를 위한 MCP(Model Context Protocol) 서버입니다.
 Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에서 전자계약 기능을 사용할 수 있습니다.
 
+> **API 문서**: https://developers.modusign.co.kr
+
 ## 기능
 
-- **21개 MCP Tool** — 서명 요청, 문서 조회, 템플릿 관리, 파일 업로드 등
+- **22개 MCP Tool** — 서명 요청, 문서 조회, 템플릿 관리, 파일 업로드, 헬스체크 등
 - **자동 Rate Limit 처리** — 429 응답 시 자동 재시도 (최대 3회)
 - **범용 MCP 호환** — stdio transport로 모든 MCP 클라이언트 지원
 - **TypeScript** — 타입 안전성 보장
@@ -112,11 +114,12 @@ npm run build
 | `file_upload` | 파일 업로드 (base64 → multipart 변환, 2시간 유효) |
 | `file_merge` | 여러 PDF 파일 병합 |
 
-### 유저 (1개)
+### 유저 / 유틸리티 (2개)
 
 | Tool | 설명 |
 |------|------|
 | `user_get_me` | 현재 인증된 사용자 정보 조회 |
+| `health_check` | MCP 서버 상태 및 API 인증 확인 (API KEY 오류 시 안내) |
 
 ## 사용 예시
 
@@ -158,6 +161,39 @@ doc_12345 문서를 취소해줘. 사유는 "내용 수정 후 재발송 예정"
 | 고비용 API (목록 조회, 서명 요청, 파일 업로드) | 150 | 5 |
 
 429 응답 시 `X-Retry-After` 헤더 기반으로 자동 재시도합니다 (최대 3회).
+
+## Roadmap
+
+모두싸인 API 중 미구현 항목입니다. ([API 문서](https://developers.modusign.co.kr/reference) 기준)
+
+### 라벨 관리
+- [ ] `label_list` — 라벨 목록 조회
+- [ ] `label_create` — 라벨 생성
+- [ ] `label_update` — 라벨 수정
+- [ ] `label_delete` — 라벨 삭제
+- [ ] `document_add_label` — 문서에 라벨 추가
+- [ ] `document_remove_label` — 문서에서 라벨 제거
+
+### 템플릿 관리 (확장)
+- [ ] `template_create_embedded` — 임베디드 템플릿 생성
+- [ ] `template_delete` — 템플릿 삭제
+- [ ] `template_update_metadata` — 템플릿 메타데이터 변경
+- [ ] `template_get_embedded_view` — 임베디드 템플릿보기 URL 조회
+
+### 임베디드 초안
+- [ ] `document_create_embedded_draft` — 임베디드 초안 생성
+- [ ] `document_create_embedded_draft_from_template` — 템플릿으로 임베디드 초안 생성
+
+### 웹훅
+- [ ] `webhook_list` — 웹훅 목록 조회
+- [ ] `webhook_create` — 웹훅 생성
+- [ ] `webhook_get` — 웹훅 상세 조회
+- [ ] `webhook_update` — 웹훅 수정
+- [ ] `webhook_delete` — 웹훅 삭제
+
+### 유저 / 구독
+- [ ] `user_get_subscription` — 구독 정보 조회
+- [ ] `user_get_usage` — 사용량 조회
 
 ## 라이선스
 
