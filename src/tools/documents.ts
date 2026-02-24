@@ -27,7 +27,7 @@ const SigningMethodSchema = z.object({
   value: z
     .string()
     .describe(
-      "Email address for EMAIL, Kakao user ID for KAKAO, or email/phone number for SECURE_LINK (cannot be empty)",
+      "Email address for EMAIL, phone number for KAKAO (e.g. 01012345678), or email/phone number for SECURE_LINK (cannot be empty)",
     ),
 });
 
