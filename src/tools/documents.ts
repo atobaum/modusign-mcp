@@ -22,7 +22,7 @@ const SigningMethodSchema = z.object({
   type: z
     .enum(["EMAIL", "KAKAO", "SECURE_LINK"])
     .describe(
-      "Notification/signing method. EMAIL: email notification, KAKAO: KakaoTalk, SECURE_LINK: direct secure URL",
+      "Notification/signing method. EMAIL: email notification, KAKAO: KakaoTalk via phone number (use when user provides a phone number), SECURE_LINK: direct secure URL",
     ),
   value: z
     .string()
