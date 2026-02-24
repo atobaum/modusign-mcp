@@ -113,7 +113,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
       );
 
       if (!urlKey) {
-        return jsonContent(draft);
+        return jsonContent({ ...draft, uploadedFileRef: fileRef });
       }
 
       const originalUrl = draft[urlKey] as string;
@@ -121,6 +121,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
         ...draft,
         [urlKey]: addCreateTemplateMode(originalUrl),
         templateEmbeddedUrl: addCreateTemplateMode(originalUrl),
+        uploadedFileRef: fileRef,
       });
     },
   );
