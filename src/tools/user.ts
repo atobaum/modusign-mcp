@@ -70,14 +70,16 @@ export function registerUserTools(server: McpServer, client: ModusignClient): vo
   server.registerTool(
     'user_get_usage',
     {
-      description: 'Get usage statistics. 사용량 정보를 조회합니다.',
+      description: 'Get usage statistics for a date range. 사용량 정보를 조회합니다. from/to는 필수입니다.',
       inputSchema: z.object({
-        params: z.record(z.union([z.string(), z.number()])).optional().describe(
-          'Optional query params for usage range/grouping. Example: {"from":"2026-02-01T00:00:00+09:00","to":"2026-02-24T23:59:59+09:00","timezoneOffset":"+09:00"}',
-        ),
+        from: z.string().describe('Start datetime in ISO 8601 format (e.g. 2026-02-01T00:00:00+09:00)'),
+        to: z.string().describe('End datetime in ISO 8601 format (e.g. 2026-02-28T23:59:59+09:00)'),
+        timezoneOffset: z.string().optional().describe('Timezone offset (e.g. "+09:00"). Defaults to UTC.'),
       }),
     },
-    async ({ params }) => {
+    async ({ from, to, timezoneOffset }) => {
+      const params: Record<string, string> = { from, to };
+      if (timezoneOffset) params.timezoneOffset = timezoneOffset;
       const result = await client.get('/usages', params);
       return jsonContent(result);
     },

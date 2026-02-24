@@ -20,12 +20,21 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "@anthropic-ai/mcpb": "^2.1.2",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["mcp", "modusign", "electronic-signature", "contract", "모두싸인", "전자서명", "전자계약"],
+  "keywords": [
+    "mcp",
+    "modusign",
+    "electronic-signature",
+    "contract",
+    "모두싸인",
+    "전자서명",
+    "전자계약"
+  ],
   "license": "MIT"
 }
