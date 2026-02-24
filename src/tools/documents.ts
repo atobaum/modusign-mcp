@@ -7,6 +7,8 @@ import {
   toFileRef,
   toRequesterAttachments,
 } from "../utils/file-ref.js";
+import fs from "fs/promises";
+import path from "path";
 
 const DocumentStatusEnum = z.enum([
   "DRAFT",
@@ -73,6 +75,11 @@ const MetadataSchema = z.object({
   value: z.string().max(80).describe("Metadata value (max 80 chars)"),
 });
 
+const CarbonCopySchema = z.object({
+  name: z.string().min(2).max(30).describe("CC recipient name"),
+  email: z.string().email().describe("CC recipient email address"),
+});
+
 const TemplateParticipantMappingSchema = z.object({
   role: z.string().describe("Role name - must match template role exactly"),
   name: z.string().min(2).max(30).describe("Participant name"),
@@ -107,6 +114,10 @@ const TemplateDocumentSchema = z.object({
     .describe("Pre-fill requester input fields defined in the template"),
   metadatas: z.array(MetadataSchema).max(10).optional(),
   labelIds: z.array(z.string()).max(5).optional(),
+  carbonCopies: z
+    .array(CarbonCopySchema)
+    .optional()
+    .describe("Carbon copy recipients"),
 });
 
 function jsonContent(data: unknown) {
@@ -252,6 +263,10 @@ export function registerDocumentTools(
           .max(5)
           .optional()
           .describe("Label IDs to attach (max 5)"),
+        carbonCopies: z
+          .array(CarbonCopySchema)
+          .optional()
+          .describe("Carbon copy recipients who receive a copy of the signed document"),
       }),
     },
     async ({
@@ -261,6 +276,7 @@ export function registerDocumentTools(
       participants,
       metadatas,
       labelIds,
+      carbonCopies,
     }) => {
       const [fileRef, attachmentRefs] = await Promise.all([
         toFileRef(client, file, "document", "document"),
@@ -274,6 +290,7 @@ export function registerDocumentTools(
         participants,
         metadatas,
         labelIds,
+        carbonCopies,
       };
       const result = await client.post("/documents", body);
       return jsonContent({ ...(result as object), uploadedFileRef: fileRef });
@@ -654,6 +671,50 @@ export function registerDocumentTools(
         `/documents/${documentId}/participants/${participantId}/embedded-view`,
       );
       return jsonContent(result);
+    },
+  );
+
+  server.registerTool(
+    "document_download",
+    {
+      description:
+        "Download a document's PDF file to the local filesystem. 문서의 PDF 파일을 로컬 파일시스템에 저장합니다. COMPLETED 상태 문서의 최종본을 다운로드할 때 유용합니다.",
+      inputSchema: z.object({
+        documentId: z.string().describe("Document ID"),
+        outputPath: z
+          .string()
+          .describe(
+            'Local file path to save the PDF (e.g. "/Users/you/Downloads/contract.pdf")',
+          ),
+      }),
+    },
+    async ({ documentId, outputPath }) => {
+      const doc = await client.get<Record<string, unknown>>(
+        `/documents/${documentId}`,
+      );
+      const file = doc.file as Record<string, unknown> | undefined;
+      const downloadUrl =
+        (file?.downloadUrl as string | undefined) ??
+        (doc.downloadUrl as string | undefined);
+      if (!downloadUrl) {
+        throw new Error("문서에서 다운로드 URL을 찾을 수 없습니다.");
+      }
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`파일 다운로드 실패: ${response.status} ${response.statusText}`);
+      }
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const dir = path.dirname(outputPath);
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(outputPath, buffer);
+      return jsonContent({
+        success: true,
+        outputPath,
+        sizeBytes: buffer.length,
+        documentId,
+        title: doc.title,
+        status: doc.status,
+      });
     },
   );
 }
