@@ -98,27 +98,6 @@ const TemplateParticipantMappingSchema = z.object({
     .describe("Set true to exclude this participant from signing"),
 });
 
-const TemplateDocumentSchema = z.object({
-  title: z.string().min(1).max(100).describe("Document title (1-100 chars)"),
-  participantMappings: z
-    .array(TemplateParticipantMappingSchema)
-    .describe("Map template roles to actual signers"),
-  requesterInputMappings: z
-    .array(
-      z.object({
-        dataLabel: z.string().describe("Template input field label"),
-        value: z.string().describe("Value to fill in"),
-      }),
-    )
-    .optional()
-    .describe("Pre-fill requester input fields defined in the template"),
-  metadatas: z.array(MetadataSchema).max(10).optional(),
-  labelIds: z.array(z.string()).max(5).optional(),
-  carbonCopies: z
-    .array(CarbonCopySchema)
-    .optional()
-    .describe("Carbon copy recipients"),
-});
 
 function jsonContent(data: unknown) {
   return {
@@ -233,36 +212,45 @@ export function registerDocumentTools(
     "document_create",
     {
       description:
-        "Create a new signing request. Supports FILE_PATH and BASE64 file modes; BASE64 input is automatically uploaded via /files and converted to FILE_REF before /documents call.",
+        "Create a new signing request from a file or a template. 파일 또는 템플릿으로 새 서명 요청을 생성합니다. templateId를 제공하면 템플릿 기반으로, file을 제공하면 파일 기반으로 생성됩니다.",
       inputSchema: z.object({
-        title: z
-          .string()
-          .min(1)
-          .max(100)
-          .describe("Document title (1-100 chars)"),
-        file: FileInputSchema.describe(
-          "Main document file (FILE_PATH(recommanded) or BASE64)",
+        title: z.string().min(1).max(100).describe("Document title (1-100 chars)"),
+        // File-based (required when templateId is not provided)
+        file: FileInputSchema.optional().describe(
+          "Main document file (FILE_PATH recommended, or BASE64). Required when templateId is not provided.",
         ),
-        requesterAttachments: z
-          .array(RequesterAttachmentInputSchema)
-          .optional()
-          .describe(
-            "Requester attachments. Each item supports BASE64 or FILE_REF and is normalized to FILE_REF.",
-          ),
         participants: z
           .array(ParticipantSchema)
           .min(1)
-          .describe("Signing participants (at least 1)"),
-        metadatas: z
-          .array(MetadataSchema)
-          .max(10)
           .optional()
-          .describe("Custom metadata key-value pairs (max 10)"),
-        labelIds: z
-          .array(z.string())
-          .max(5)
+          .describe("Signing participants — required when using file (not template)"),
+        requesterAttachments: z
+          .array(RequesterAttachmentInputSchema)
           .optional()
-          .describe("Label IDs to attach (max 5)"),
+          .describe("Requester attachments (BASE64 or FILE_REF)"),
+        // Template-based (required when file is not provided)
+        templateId: z
+          .string()
+          .optional()
+          .describe(
+            "Template ID — provide this instead of file to create from a template (from template_list or template_get)",
+          ),
+        participantMappings: z
+          .array(TemplateParticipantMappingSchema)
+          .optional()
+          .describe("Map template roles to actual signers — required when using templateId"),
+        requesterInputMappings: z
+          .array(
+            z.object({
+              dataLabel: z.string().describe("Template input field label"),
+              value: z.string().describe("Value to fill in"),
+            }),
+          )
+          .optional()
+          .describe("Pre-fill requester input fields defined in the template"),
+        // Common
+        metadatas: z.array(MetadataSchema).max(10).optional(),
+        labelIds: z.array(z.string()).max(5).optional().describe("Label IDs to attach (max 5)"),
         carbonCopies: z
           .array(CarbonCopySchema)
           .optional()
@@ -272,17 +260,28 @@ export function registerDocumentTools(
     async ({
       title,
       file,
-      requesterAttachments,
       participants,
+      requesterAttachments,
+      templateId,
+      participantMappings,
+      requesterInputMappings,
       metadatas,
       labelIds,
       carbonCopies,
     }) => {
+      if (templateId) {
+        const body = {
+          templateId,
+          document: { title, participantMappings, requesterInputMappings, metadatas, labelIds, carbonCopies },
+        };
+        const result = await client.post("/documents/request-with-template", body);
+        return jsonContent(result);
+      }
+      if (!file) throw new Error("file is required when templateId is not provided");
       const [fileRef, attachmentRefs] = await Promise.all([
         toFileRef(client, file, "document", "document"),
         toRequesterAttachments(client, requesterAttachments),
       ]);
-
       const body = {
         title,
         file: fileRef,
@@ -298,73 +297,83 @@ export function registerDocumentTools(
   );
 
   server.registerTool(
-    "document_create_from_template",
-    {
-      description:
-        "Create a signing request using a pre-configured template. 템플릿을 사용하여 서명 요청을 생성합니다. 템플릿의 역할명과 participantMappings의 role이 일치해야 합니다.",
-      inputSchema: z.object({
-        templateId: z
-          .string()
-          .describe("Template ID (from template_list or template_get)"),
-        document: TemplateDocumentSchema,
-      }),
-    },
-    async ({ templateId, document }) => {
-      const body = { templateId, document };
-      const result = await client.post(
-        "/documents/request-with-template",
-        body,
-      );
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
     "document_create_embedded_draft",
     {
       description:
-        "Create an embedded draft URL for iframe-based draft editing. 임베디드 초안을 생성해 iframe에서 문서를 작성할 수 있는 URL을 반환합니다.",
+        "Create an embedded draft URL for iframe-based editing, from a file or a template. 파일 또는 템플릿으로 임베디드 초안 URL을 생성합니다. templateId를 제공하면 템플릿 기반으로, file을 제공하면 파일 기반으로 생성됩니다.",
       inputSchema: z
         .object({
           title: z.string().min(1).max(100).describe("Draft title"),
-          file: FileInputSchema.describe(
-            "Main draft file (BASE64 or FILE_REF)",
-          ),
-          requesterAttachments: z
-            .array(RequesterAttachmentInputSchema)
-            .optional()
-            .describe(
-              "Requester attachments. Each item supports BASE64 or FILE_REF and is normalized to FILE_REF.",
-            ),
-          participants: z
-            .array(ParticipantSchema)
-            .min(1)
-            .describe("Draft participants"),
-          metadatas: z.array(MetadataSchema).max(10).optional(),
-          labelIds: z.array(z.string()).max(5).optional(),
           redirectUrl: z
             .string()
             .url()
             .optional()
             .describe("Optional redirect URL after embedded flow completes"),
+          // File-based
+          file: FileInputSchema.optional().describe(
+            "Main draft file (FILE_PATH recommended, or BASE64). Required when templateId is not provided.",
+          ),
+          participants: z
+            .array(ParticipantSchema)
+            .min(1)
+            .optional()
+            .describe("Draft participants — required when using file (not template)"),
+          requesterAttachments: z
+            .array(RequesterAttachmentInputSchema)
+            .optional()
+            .describe("Requester attachments (BASE64 or FILE_REF)"),
+          // Template-based
+          templateId: z
+            .string()
+            .optional()
+            .describe("Template ID — provide this instead of file to create from a template"),
+          participantMappings: z
+            .array(TemplateParticipantMappingSchema)
+            .optional()
+            .describe("Map template roles to actual signers — required when using templateId"),
+          requesterInputMappings: z
+            .array(
+              z.object({
+                dataLabel: z.string().describe("Template input field label"),
+                value: z.string().describe("Value to fill in"),
+              }),
+            )
+            .optional()
+            .describe("Pre-fill requester input fields defined in the template"),
+          // Common
+          metadatas: z.array(MetadataSchema).max(10).optional(),
+          labelIds: z.array(z.string()).max(5).optional(),
         })
         .passthrough(),
     },
     async ({
       title,
+      redirectUrl,
       file,
-      requesterAttachments,
       participants,
+      requesterAttachments,
+      templateId,
+      participantMappings,
+      requesterInputMappings,
       metadatas,
       labelIds,
-      redirectUrl,
       ...rest
     }) => {
+      if (templateId) {
+        const body = {
+          templateId,
+          document: { title, participantMappings, requesterInputMappings, metadatas, labelIds },
+          redirectUrl,
+          ...rest,
+        };
+        const result = await client.post("/embedded-drafts/create-with-template", body);
+        return jsonContent(result);
+      }
+      if (!file) throw new Error("file is required when templateId is not provided");
       const [fileRef, attachmentRefs] = await Promise.all([
         toFileRef(client, file, "document", "embedded-draft"),
         toRequesterAttachments(client, requesterAttachments),
       ]);
-
       const body = {
         title,
         file: fileRef,
@@ -377,33 +386,6 @@ export function registerDocumentTools(
       };
       const result = await client.post("/embedded-drafts", body);
       return jsonContent({ ...(result as object), uploadedFileRef: fileRef });
-    },
-  );
-
-  server.registerTool(
-    "document_create_embedded_draft_from_template",
-    {
-      description:
-        "Create an embedded draft URL from a template. 템플릿으로 임베디드 초안을 생성합니다.",
-      inputSchema: z
-        .object({
-          templateId: z.string().describe("Template ID"),
-          document: TemplateDocumentSchema,
-          redirectUrl: z
-            .string()
-            .url()
-            .optional()
-            .describe("Optional redirect URL after embedded flow completes"),
-        })
-        .passthrough(),
-    },
-    async ({ templateId, document, redirectUrl, ...rest }) => {
-      const body = { templateId, document, redirectUrl, ...rest };
-      const result = await client.post(
-        "/embedded-drafts/create-with-template",
-        body,
-      );
-      return jsonContent(result);
     },
   );
 
