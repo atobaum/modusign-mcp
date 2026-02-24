@@ -400,7 +400,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId }) => {
-      const result = await client.post(`/documents/${documentId}/cancel`);
+      const result = await client.post(`/documents/${documentId}/cancel`, {});
       return jsonContent(result);
     },
   );
