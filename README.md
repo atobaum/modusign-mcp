@@ -164,58 +164,53 @@ npm run build
 
 ## 사용 가능한 Tool 목록
 
-### 문서 (17개)
+### 서명 요청 (8개)
+
+서명 라이프사이클을 직접 조작하는 툴.
+
+| Tool | 설명 |
+|------|------|
+| `document_create` | 서명 요청 생성. `file`/`templateId`로 분기, `embedded: true`로 임베디드 편집 URL 반환 |
+| `document_cancel` | 서명 요청 취소 (ON_GOING/SCHEDULED 상태만 가능) |
+| `document_remind` | 현재 순서 참여자에게 서명 알림 재전송 |
+| `document_request_correction` | 특정 참여자에게 서명 내용 수정 요청 |
+| `document_change_due_date` | 서명 유효기간 변경 |
+| `document_forward` | 완료된 문서를 이메일/전화로 외부 전달 |
+| `document_get_signing_url` | SECURE_LINK 참여자의 서명 URL 조회 |
+| `document_get_embedded_view` | 임베디드 문서보기 URL 조회 |
+
+### 문서 조회 (9개)
+
+문서 상태 및 내용을 읽는 툴.
 
 | Tool | 설명 |
 |------|------|
 | `document_list` | 서명 문서 목록 조회 (상태/제목/날짜/라벨 필터, 정렬 지원) |
 | `document_get` | 문서 상세 정보 조회 |
-| `document_create` | 서명 요청 생성. `file` 또는 `templateId`로 파일/템플릿 분기. `embedded: true`로 임베디드 편집 URL 반환 |
-| `document_cancel` | 서명 요청 취소 (ON_GOING/SCHEDULED 상태만 가능) |
-| `document_remind` | 서명 알림 재전송 |
-| `document_request_correction` | 서명 내용 수정 요청 |
-| `document_change_due_date` | 서명 유효기간 변경 |
+| `document_download` | 문서 PDF를 로컬 파일시스템에 저장 |
+| `document_get_history` | 문서 이력 조회 (상태 변경, 서명 이벤트 등) |
+| `document_get_requester_inputs` | 요청자 입력 정보 조회 |
+| `document_get_participant_fields` | 서명자 입력란 정의 조회 |
+| `document_get_attachments` | 첨부파일 조회 |
 | `document_update_metadata` | 문서 메타데이터 변경 |
 | `document_manage_labels` | 문서에 라벨 추가/제거 (`action: "add" \| "remove"`) |
-| `document_get_history` | 문서 이력 조회 |
-| `document_get_requester_inputs` | 요청자 입력 정보 조회 |
-| `document_get_participant_fields` | 서명자 입력란 조회 |
-| `document_get_attachments` | 첨부파일 조회 |
-| `document_forward` | 완료된 문서 전달 (이메일/전화) |
-| `document_get_embedded_view` | 임베디드 문서보기 URL 조회 |
-| `document_get_signing_url` | 서명자 보안 링크 조회 (SECURE_LINK 방식 전용) |
-| `document_download` | 문서 PDF를 로컬 파일시스템에 저장 |
 
-### 템플릿 (6개)
+### 관리 (8개)
+
+템플릿, 라벨, 웹훅 등 재사용 리소스 관리.
 
 | Tool | 설명 |
 |------|------|
 | `template_list` | 템플릿 목록 조회 |
-| `template_get` | 템플릿 상세 정보 조회 (참여자 역할·입력 필드 포함) |
-| `template_create_embedded` | 임베디드 템플릿 생성 URL 조회 |
+| `template_get` | 템플릿 상세 조회 (참여자 역할·입력 필드 포함) |
+| `template_create_embedded` | 임베디드 템플릿 편집 URL 생성 |
 | `template_delete` | 템플릿 삭제 |
 | `template_update_metadata` | 템플릿 메타데이터 변경 |
 | `template_get_embedded_view` | 임베디드 템플릿보기 URL 조회 |
+| `label_manage` | 라벨 CRUD (`action: "list" \| "create" \| "update" \| "delete"`) |
+| `webhook_manage` | 웹훅 CRUD (`action: "list" \| "get" \| "create" \| "update" \| "delete"`) |
 
-### 라벨 (1개)
-
-| Tool | 설명 |
-|------|------|
-| `label_manage` | 라벨 CRUD 통합 (`action: "list" \| "create" \| "update" \| "delete"`) |
-
-### 파일 (1개)
-
-| Tool | 설명 |
-|------|------|
-| `file_merge` | 여러 PDF FILE_REF(fileId+token) 병합 |
-
-### 웹훅 (1개)
-
-| Tool | 설명 |
-|------|------|
-| `webhook_manage` | 웹훅 CRUD 통합 (`action: "list" \| "get" \| "create" \| "update" \| "delete"`) |
-
-### 유저 / 유틸리티 (4개)
+### 기타 (5개)
 
 | Tool | 설명 |
 |------|------|
@@ -223,6 +218,7 @@ npm run build
 | `user_get_subscription` | 구독 정보 조회 |
 | `user_get_usage` | 사용량 조회 (`from`, `to` ISO 8601 날짜 필수) |
 | `health_check` | MCP 서버 상태 및 API 인증 확인 |
+| `file_merge` | 여러 PDF FILE_REF(fileId+token) 병합 |
 
 ## 사용 예시
 
