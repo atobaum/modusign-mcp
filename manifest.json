@@ -8,6 +8,28 @@
     "name": "atobaum",
     "email": "atobaum@gmail.com"
   },
+  "user_config": {
+    "email": {
+      "type": "string",
+      "title": "Modusign 이메일",
+      "description": "모두싸인 계정 이메일 주소",
+      "required": true
+    },
+    "api_key": {
+      "type": "string",
+      "title": "Modusign API Key",
+      "description": "모두싸인 API KEY",
+      "required": true,
+      "sensitive": true
+    },
+    "base_url": {
+      "type": "string",
+      "title": "API Base URL (선택)",
+      "description": "Modusign API 기본 URL. 기본값: https://api.modusign.co.kr",
+      "required": false,
+      "default": "https://api.modusign.co.kr"
+    }
+  },
   "server": {
     "type": "node",
     "entry_point": "dist/index.js",
@@ -17,8 +39,9 @@
         "${__dirname}/dist/index.js"
       ],
       "env": {
-        "MODUSIGN_EMAIL": "${config:MODUSIGN_EMAIL}",
-        "MODUSIGN_API_KEY": "${config:MODUSIGN_API_KEY}"
+        "MODUSIGN_EMAIL": "${user_config.email}",
+        "MODUSIGN_API_KEY": "${user_config.api_key}",
+        "MODUSIGN_BASE_URL": "${user_config.base_url}"
       }
     }
   },
