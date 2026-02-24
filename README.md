@@ -7,7 +7,7 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 
 ## 기능
 
-- **40개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 병합, 유저/구독 조회 등
+- **33개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 다운로드/병합, 유저/구독 조회 등
 - **자동 Rate Limit 처리** — 429 응답 시 자동 재시도 (최대 3회)
 - **범용 MCP 호환** — stdio transport로 모든 MCP 클라이언트 지원
 - **TypeScript** — 타입 안전성 보장
@@ -110,8 +110,8 @@ npm run build
 |------|------|
 | `document_list` | 서명 문서 목록 조회 (상태/제목/날짜/라벨 필터, 정렬 지원) |
 | `document_get` | 문서 상세 정보 조회 |
-| `document_create` | 새 서명 요청 생성 (filePath/BASE64/FILE_REF 지원) |
-| `document_create_from_template` | 템플릿으로 서명 요청 생성 |
+| `document_create` | 새 서명 요청 생성 (filePath/BASE64/FILE_REF, carbonCopies 지원) |
+| `document_create_from_template` | 템플릿으로 서명 요청 생성 (carbonCopies 지원) |
 | `document_create_embedded_draft` | 임베디드 초안 생성 |
 | `document_create_embedded_draft_from_template` | 템플릿으로 임베디드 초안 생성 |
 | `document_cancel` | 서명 요청 취소 (ON_GOING/SCHEDULED 상태만 가능) |
@@ -119,8 +119,7 @@ npm run build
 | `document_request_correction` | 서명 내용 수정 요청 |
 | `document_change_due_date` | 서명 유효기간 변경 |
 | `document_update_metadata` | 문서 메타데이터 변경 |
-| `document_add_label` | 문서에 라벨 추가 |
-| `document_remove_label` | 문서에서 라벨 제거 |
+| `document_manage_labels` | 문서에 라벨 추가/제거 (`action: "add" \| "remove"`) |
 | `document_get_history` | 문서 이력 조회 |
 | `document_get_requester_inputs` | 요청자 입력 정보 조회 |
 | `document_get_participant_fields` | 서명자 입력란 조회 |
@@ -128,26 +127,24 @@ npm run build
 | `document_forward` | 완료된 문서 전달 (이메일/전화) |
 | `document_get_embedded_view` | 임베디드 문서보기 URL 조회 |
 | `document_get_signing_url` | 서명자 보안 링크 조회 (SECURE_LINK 방식 전용) |
+| `document_download` | 문서 PDF를 로컬 파일시스템에 저장 |
 
 ### 템플릿 (6개)
 
 | Tool | 설명 |
 |------|------|
 | `template_list` | 템플릿 목록 조회 |
-| `template_get` | 템플릿 상세 정보 조회 |
+| `template_get` | 템플릿 상세 정보 조회 (참여자 역할·입력 필드 포함) |
 | `template_create_embedded` | 임베디드 템플릿 생성 URL 조회 |
 | `template_delete` | 템플릿 삭제 |
 | `template_update_metadata` | 템플릿 메타데이터 변경 |
 | `template_get_embedded_view` | 임베디드 템플릿보기 URL 조회 |
 
-### 라벨 (4개)
+### 라벨 (1개)
 
 | Tool | 설명 |
 |------|------|
-| `label_list` | 라벨 목록 조회 |
-| `label_create` | 라벨 생성 |
-| `label_update` | 라벨 수정 |
-| `label_delete` | 라벨 삭제 |
+| `label_manage` | 라벨 CRUD 통합 (`action: "list" \| "create" \| "update" \| "delete"`) |
 
 ### 파일 (1개)
 
@@ -155,15 +152,11 @@ npm run build
 |------|------|
 | `file_merge` | 여러 PDF FILE_REF(fileId+token) 병합 |
 
-### 웹훅 (5개)
+### 웹훅 (1개)
 
 | Tool | 설명 |
 |------|------|
-| `webhook_list` | 웹훅 목록 조회 |
-| `webhook_create` | 웹훅 생성 |
-| `webhook_get` | 웹훅 상세 조회 |
-| `webhook_update` | 웹훅 수정 |
-| `webhook_delete` | 웹훅 삭제 |
+| `webhook_manage` | 웹훅 CRUD 통합 (`action: "list" \| "get" \| "create" \| "update" \| "delete"`) |
 
 ### 유저 / 유틸리티 (4개)
 
