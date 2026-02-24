@@ -59,6 +59,83 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 }
 ```
 
+#### Cursor
+
+`~/.cursor/mcp.json` (글로벌) 또는 `.cursor/mcp.json` (프로젝트)에 추가:
+
+```json
+{
+  "mcpServers": {
+    "modusign": {
+      "command": "npx",
+      "args": ["-y", "modusign-mcp"],
+      "env": {
+        "MODUSIGN_EMAIL": "your@email.com",
+        "MODUSIGN_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+또는 Cursor Settings → Features → MCP → Add new MCP server에서 직접 추가할 수 있습니다.
+
+#### Windsurf
+
+`~/.codeium/windsurf/mcp_config.json`에 추가:
+
+```json
+{
+  "mcpServers": {
+    "modusign": {
+      "command": "npx",
+      "args": ["-y", "modusign-mcp"],
+      "env": {
+        "MODUSIGN_EMAIL": "your@email.com",
+        "MODUSIGN_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+#### Cline (VS Code 확장)
+
+VS Code 사이드바의 Cline 아이콘 → MCP Servers → Configure MCP Servers 클릭 후 아래 내용을 추가:
+
+```json
+{
+  "modusign": {
+    "command": "npx",
+    "args": ["-y", "modusign-mcp"],
+    "env": {
+      "MODUSIGN_EMAIL": "your@email.com",
+      "MODUSIGN_API_KEY": "your-api-key"
+    }
+  }
+}
+```
+
+#### Continue.dev (VS Code / JetBrains 확장)
+
+`~/.continue/config.json`의 `mcpServers` 배열에 추가:
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "modusign",
+      "command": "npx",
+      "args": ["-y", "modusign-mcp"],
+      "env": {
+        "MODUSIGN_EMAIL": "your@email.com",
+        "MODUSIGN_API_KEY": "your-api-key"
+      }
+    }
+  ]
+}
+```
+
 ### 방법 3: 로컬 빌드 (개발용)
 
 ```bash
