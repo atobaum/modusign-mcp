@@ -64,7 +64,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
   server.registerTool(
     'template_get',
     {
-      description: 'Get detailed information of a template including roles, input fields, and configuration. 템플릿의 상세 정보(역할, 입력 필드, 설정 등)를 조회합니다.',
+      description: 'Get detailed information of a template including participant roles, requester input fields, and configuration. 템플릿 상세 조회 — participantMappings에 사용할 role 이름과 requesterInputMappings에 사용할 dataLabel을 확인하려면 이 툴을 사용하세요.',
       inputSchema: z.object({
         templateId: z.string().describe('Template ID'),
       }),
@@ -72,50 +72,6 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
     async ({ templateId }) => {
       const result = await client.get(`/templates/${templateId}`);
       return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'template_get_fields',
-    {
-      description: 'Get the participant roles and requester input fields defined in a template. Use this before document_create_from_template to understand what roles and fields the template requires. 템플릿에 정의된 참여자 역할과 요청자 입력 필드를 조회합니다. document_create_from_template 호출 전에 필요한 정보를 파악할 때 사용하세요.',
-      inputSchema: z.object({
-        templateId: z.string().describe('Template ID'),
-      }),
-    },
-    async ({ templateId }) => {
-      const template = await client.get<Record<string, unknown>>(`/templates/${templateId}`);
-
-      // Extract participant roles
-      const participants = (template.participants ?? template.roles ?? []) as Record<string, unknown>[];
-      const roles = participants.map((p) => ({
-        role: p.role ?? p.name ?? p.roleName,
-        type: p.type,
-        signingOrder: p.signingOrder,
-        description: p.description,
-      }));
-
-      // Extract requester input fields
-      const requesterInputs = (
-        template.requesterInputs ??
-        template.inputFields ??
-        template.fields ??
-        []
-      ) as Record<string, unknown>[];
-      const inputs = requesterInputs.map((f) => ({
-        dataLabel: f.dataLabel ?? f.label ?? f.name,
-        type: f.type,
-        required: f.required,
-        defaultValue: f.defaultValue,
-      }));
-
-      return jsonContent({
-        templateId,
-        title: template.title,
-        roles,
-        requesterInputFields: inputs,
-        _raw: template,
-      });
     },
   );
 

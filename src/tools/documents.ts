@@ -513,36 +513,24 @@ export function registerDocumentTools(
   );
 
   server.registerTool(
-    "document_add_label",
-    {
-      description: "Add a label to a document. 문서에 라벨을 추가합니다.",
-      inputSchema: z.object({
-        documentId: z.string().describe("Document ID"),
-        labelId: z.string().describe("Label ID"),
-      }),
-    },
-    async ({ documentId, labelId }) => {
-      const result = await client.post(
-        `/documents/${documentId}/labels/${labelId}`,
-      );
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    "document_remove_label",
+    "document_manage_labels",
     {
       description:
-        "Remove a label from a document. 문서에서 라벨을 제거합니다.",
+        "Add or remove a label on a document. 문서에 라벨을 추가하거나 제거합니다.",
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
         labelId: z.string().describe("Label ID"),
+        action: z
+          .enum(["add", "remove"])
+          .describe("add=라벨 추가, remove=라벨 제거"),
       }),
     },
-    async ({ documentId, labelId }) => {
-      const result = await client.delete(
-        `/documents/${documentId}/labels/${labelId}`,
-      );
+    async ({ documentId, labelId, action }) => {
+      const path = `/documents/${documentId}/labels/${labelId}`;
+      const result =
+        action === "add"
+          ? await client.post(path)
+          : await client.delete(path);
       return jsonContent(result);
     },
   );
