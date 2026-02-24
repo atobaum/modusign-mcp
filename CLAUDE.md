@@ -32,7 +32,7 @@ src/
     templates.ts            # 6개 tool
     labels.ts               # 4개 tool
     webhooks.ts             # 5개 tool
-    files.ts                # 2개 tool
+    files.ts                # 1개 tool
     user.ts                 # 4개 tool
 ```
 

@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ModusignClient } from '../client/modusign-client.js';
+import {
+  FileInputSchema,
+  RequesterAttachmentInputSchema,
+  toFileRef,
+  toRequesterAttachments,
+} from '../utils/file-ref.js';
 
 const DocumentStatusEnum = z.enum([
   'DRAFT',
@@ -52,17 +58,6 @@ const MetadataSchema = z.object({
   key: z.string().min(1).max(40).describe('Metadata key (1-40 chars)'),
   value: z.string().max(80).describe('Metadata value (max 80 chars)'),
 });
-
-const FileSchema = z.union([
-  z.object({
-    base64: z.string().describe('Base64-encoded file content'),
-    extension: z.string().describe('File extension (e.g. "pdf")'),
-  }),
-  z.object({
-    fileId: z.string().describe('File ID from file_upload result'),
-    token: z.string().describe('File token from file_upload result'),
-  }),
-]).describe('Document file: base64+extension OR fileId+token from file_upload');
 
 const TemplateParticipantMappingSchema = z.object({
   role: z.string().describe('Role name - must match template role exactly'),
@@ -137,17 +132,25 @@ export function registerDocumentTools(server: McpServer, client: ModusignClient)
   server.registerTool(
     'document_create',
     {
-      description: 'Create a new signing request with a PDF file. Provide file as base64 or use fileId+token from file_upload. 새 서명 요청을 생성합니다. PDF 파일을 base64로 전달하거나 file_upload 결과의 fileId+token을 사용합니다.',
+      description: 'Create a new signing request. Supports BASE64 and FILE_REF file modes; BASE64 input is automatically uploaded via /files and converted to FILE_REF before /documents call. 새 서명 요청을 생성합니다. BASE64/FILE_REF 모두 지원하며 BASE64는 내부적으로 /files 업로드 후 FILE_REF로 변환되어 /documents가 호출됩니다.',
       inputSchema: z.object({
         title: z.string().min(1).max(100).describe('Document title (1-100 chars)'),
-        file: FileSchema,
+        file: FileInputSchema.describe('Main document file (BASE64 or FILE_REF)'),
+        requesterAttachments: z.array(RequesterAttachmentInputSchema)
+          .optional()
+          .describe('Requester attachments. Each item supports BASE64 or FILE_REF and is normalized to FILE_REF.'),
         participants: z.array(ParticipantSchema).min(1).describe('Signing participants (at least 1)'),
         metadatas: z.array(MetadataSchema).max(10).optional().describe('Custom metadata key-value pairs (max 10)'),
         labelIds: z.array(z.string()).max(5).optional().describe('Label IDs to attach (max 5)'),
       }),
     },
-    async ({ title, file, participants, metadatas, labelIds }) => {
-      const body = { title, file, participants, metadatas, labelIds };
+    async ({ title, file, requesterAttachments, participants, metadatas, labelIds }) => {
+      const [fileRef, attachmentRefs] = await Promise.all([
+        toFileRef(client, file, 'document', 'document'),
+        toRequesterAttachments(client, requesterAttachments),
+      ]);
+
+      const body = { title, file: fileRef, requesterAttachments: attachmentRefs, participants, metadatas, labelIds };
       const result = await client.post('/documents', body);
       return jsonContent(result);
     },
@@ -175,15 +178,32 @@ export function registerDocumentTools(server: McpServer, client: ModusignClient)
       description: 'Create an embedded draft URL for iframe-based draft editing. 임베디드 초안을 생성해 iframe에서 문서를 작성할 수 있는 URL을 반환합니다.',
       inputSchema: z.object({
         title: z.string().min(1).max(100).describe('Draft title'),
-        file: FileSchema,
+        file: FileInputSchema.describe('Main draft file (BASE64 or FILE_REF)'),
+        requesterAttachments: z.array(RequesterAttachmentInputSchema)
+          .optional()
+          .describe('Requester attachments. Each item supports BASE64 or FILE_REF and is normalized to FILE_REF.'),
         participants: z.array(ParticipantSchema).min(1).describe('Draft participants'),
         metadatas: z.array(MetadataSchema).max(10).optional(),
         labelIds: z.array(z.string()).max(5).optional(),
         redirectUrl: z.string().url().optional().describe('Optional redirect URL after embedded flow completes'),
       }).passthrough(),
     },
-    async ({ title, file, participants, metadatas, labelIds, redirectUrl, ...rest }) => {
-      const body = { title, file, participants, metadatas, labelIds, redirectUrl, ...rest };
+    async ({ title, file, requesterAttachments, participants, metadatas, labelIds, redirectUrl, ...rest }) => {
+      const [fileRef, attachmentRefs] = await Promise.all([
+        toFileRef(client, file, 'document', 'embedded-draft'),
+        toRequesterAttachments(client, requesterAttachments),
+      ]);
+
+      const body = {
+        title,
+        file: fileRef,
+        requesterAttachments: attachmentRefs,
+        participants,
+        metadatas,
+        labelIds,
+        redirectUrl,
+        ...rest,
+      };
       const result = await client.post('/embedded-drafts', body);
       return jsonContent(result);
     },
@@ -201,7 +221,7 @@ export function registerDocumentTools(server: McpServer, client: ModusignClient)
     },
     async ({ templateId, document, redirectUrl, ...rest }) => {
       const body = { templateId, document, redirectUrl, ...rest };
-      const result = await client.post('/embedded-drafts/from-template', body);
+      const result = await client.post('/embedded-drafts/create-with-template', body);
       return jsonContent(result);
     },
   );

@@ -1,22 +1,17 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ModusignClient } from '../client/modusign-client.js';
+import {
+  FileInputSchema,
+  RequesterAttachmentInputSchema,
+  toFileRef,
+  toRequesterAttachments,
+} from '../utils/file-ref.js';
 
 const MetadataSchema = z.object({
   key: z.string().min(1).max(40).describe('Metadata key (1-40 chars)'),
   value: z.string().max(80).describe('Metadata value (max 80 chars)'),
 });
-
-const FileSchema = z.union([
-  z.object({
-    base64: z.string().describe('Base64-encoded file content'),
-    extension: z.string().describe('File extension (e.g. "pdf")'),
-  }),
-  z.object({
-    fileId: z.string().describe('File ID from file_upload result'),
-    token: z.string().describe('File token from file_upload result'),
-  }),
-]).describe('Template source file: base64+extension OR fileId+token');
 
 const EmbeddedTemplateParticipantSchema = z.object({
   type: z.enum(['SIGNER', 'VIEWER']).describe('Participant type'),
@@ -86,17 +81,26 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
       description: 'Create an embedded URL for template authoring. 임베디드 템플릿 생성용 URL을 반환합니다. 반환된 URL은 mode=create-template이 적용됩니다.',
       inputSchema: z.object({
         title: z.string().min(1).max(100).describe('Draft title'),
-        file: FileSchema,
+        file: FileInputSchema.describe('Template source file (BASE64 or FILE_REF)'),
+        requesterAttachments: z.array(RequesterAttachmentInputSchema)
+          .optional()
+          .describe('Requester attachments. Each item supports BASE64 or FILE_REF and is normalized to FILE_REF.'),
         participants: z.array(EmbeddedTemplateParticipantSchema).min(1).describe('Participants for template draft'),
         metadatas: z.array(MetadataSchema).max(10).optional(),
         labelIds: z.array(z.string()).max(5).optional(),
         redirectUrl: z.string().url().optional().describe('Optional redirect URL after embedded flow completes'),
       }).passthrough(),
     },
-    async ({ title, file, participants, metadatas, labelIds, redirectUrl, ...rest }) => {
+    async ({ title, file, requesterAttachments, participants, metadatas, labelIds, redirectUrl, ...rest }) => {
+      const [fileRef, attachmentRefs] = await Promise.all([
+        toFileRef(client, file, 'document', 'template'),
+        toRequesterAttachments(client, requesterAttachments),
+      ]);
+
       const draft = await client.post<Record<string, unknown>>('/embedded-drafts', {
         title,
-        file,
+        file: fileRef,
+        requesterAttachments: attachmentRefs,
         participants,
         metadatas,
         labelIds,

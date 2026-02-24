@@ -7,7 +7,7 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 
 ## 기능
 
-- **41개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 업로드, 유저/구독 조회 등
+- **40개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 병합, 유저/구독 조회 등
 - **자동 Rate Limit 처리** — 429 응답 시 자동 재시도 (최대 3회)
 - **범용 MCP 호환** — stdio transport로 모든 MCP 클라이언트 지원
 - **TypeScript** — 타입 안전성 보장
@@ -85,7 +85,7 @@ npm run build
 |------|------|
 | `document_list` | 서명 문서 목록 조회 (상태/제목/날짜/라벨 필터, 정렬 지원) |
 | `document_get` | 문서 상세 정보 조회 |
-| `document_create` | 새 서명 요청 생성 (PDF base64 또는 file_upload 결과 사용) |
+| `document_create` | 새 서명 요청 생성 (BASE64/FILE_REF 지원, BASE64는 내부 업로드 후 FILE_REF 변환) |
 | `document_create_from_template` | 템플릿으로 서명 요청 생성 |
 | `document_create_embedded_draft` | 임베디드 초안 생성 |
 | `document_create_embedded_draft_from_template` | 템플릿으로 임베디드 초안 생성 |
@@ -124,12 +124,11 @@ npm run build
 | `label_update` | 라벨 수정 |
 | `label_delete` | 라벨 삭제 |
 
-### 파일 (2개)
+### 파일 (1개)
 
 | Tool | 설명 |
 |------|------|
-| `file_upload` | 파일 업로드 (base64 → multipart 변환, 2시간 유효) |
-| `file_merge` | 여러 PDF 파일 병합 |
+| `file_merge` | 여러 PDF FILE_REF(fileId+token) 병합 |
 
 ### 웹훅 (5개)
 
