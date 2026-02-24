@@ -10,62 +10,41 @@ function jsonContent(data: unknown) {
 
 export function registerLabelTools(server: McpServer, client: ModusignClient): void {
   server.registerTool(
-    'label_list',
+    'label_manage',
     {
-      description: 'List labels with pagination. 라벨 목록을 조회합니다.',
+      description: 'Manage labels: list, create, update, or delete. 라벨 CRUD 통합 툴. action 파라미터로 작업을 선택합니다.',
       inputSchema: z.object({
-        offset: z.number().min(0).optional().describe('Number of items to skip'),
-        limit: z.number().min(1).max(100).optional().describe('Items per page'),
+        action: z.enum(['list', 'create', 'update', 'delete']).describe(
+          'Action to perform: list=목록조회, create=생성, update=수정, delete=삭제',
+        ),
+        labelId: z.string().optional().describe('Label ID — required for update and delete'),
+        name: z.string().min(1).max(50).optional().describe('Label name — required for create, optional for update'),
+        color: z.string().optional().describe('Label color (hex code, e.g. #FF6B6B) — optional for create/update'),
+        offset: z.number().min(0).optional().describe('Items to skip — for list'),
+        limit: z.number().min(1).max(100).optional().describe('Items per page — for list'),
       }),
     },
-    async ({ offset, limit }) => {
-      const result = await client.get('/labels', { offset, limit });
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'label_create',
-    {
-      description: 'Create a label. 라벨을 생성합니다.',
-      inputSchema: z.object({
-        name: z.string().min(1).max(50).describe('Label name'),
-        color: z.string().optional().describe('Optional label color (hex code, e.g. #FF6B6B)'),
-      }).passthrough(),
-    },
-    async ({ name, color, ...rest }) => {
-      const result = await client.post('/labels', { name, color, ...rest });
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'label_update',
-    {
-      description: 'Update a label. 라벨을 수정합니다.',
-      inputSchema: z.object({
-        labelId: z.string().describe('Label ID'),
-        name: z.string().min(1).max(50).optional().describe('Label name'),
-        color: z.string().optional().describe('Label color'),
-      }).passthrough(),
-    },
-    async ({ labelId, name, color, ...rest }) => {
-      const result = await client.put(`/labels/${labelId}`, { name, color, ...rest });
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'label_delete',
-    {
-      description: 'Delete a label. 라벨을 삭제합니다.',
-      inputSchema: z.object({
-        labelId: z.string().describe('Label ID'),
-      }),
-    },
-    async ({ labelId }) => {
-      const result = await client.delete(`/labels/${labelId}`);
-      return jsonContent(result);
+    async ({ action, labelId, name, color, offset, limit }) => {
+      if (action === 'list') {
+        const result = await client.get('/labels', { offset, limit });
+        return jsonContent(result);
+      }
+      if (action === 'create') {
+        if (!name) throw new Error('name is required for action="create"');
+        const result = await client.post('/labels', { name, color });
+        return jsonContent(result);
+      }
+      if (action === 'update') {
+        if (!labelId) throw new Error('labelId is required for action="update"');
+        const result = await client.put(`/labels/${labelId}`, { name, color });
+        return jsonContent(result);
+      }
+      if (action === 'delete') {
+        if (!labelId) throw new Error('labelId is required for action="delete"');
+        const result = await client.delete(`/labels/${labelId}`);
+        return jsonContent(result);
+      }
+      throw new Error(`Unknown action: ${action}`);
     },
   );
 }

@@ -8,79 +8,48 @@ function jsonContent(data: unknown) {
   };
 }
 
-const QueryParamsSchema = z.record(z.union([z.string(), z.number()]));
-
 export function registerWebhookTools(server: McpServer, client: ModusignClient): void {
   server.registerTool(
-    'webhook_list',
+    'webhook_manage',
     {
-      description: 'List webhooks with pagination. 웹훅 목록을 조회합니다.',
+      description: 'Manage webhooks: list, get, create, update, or delete. 웹훅 CRUD 통합 툴. action 파라미터로 작업을 선택합니다.',
       inputSchema: z.object({
-        offset: z.number().min(0).optional().describe('Number of items to skip'),
-        limit: z.number().min(1).max(100).optional().describe('Items per page'),
-        params: QueryParamsSchema.optional().describe('Additional query params'),
+        action: z.enum(['list', 'get', 'create', 'update', 'delete']).describe(
+          'Action to perform: list=목록조회, get=상세조회, create=생성, update=수정, delete=삭제',
+        ),
+        webhookId: z.string().optional().describe('Webhook ID — required for get, update, delete'),
+        payload: z.record(z.unknown()).optional().describe(
+          'Webhook payload for create or update. See Modusign API docs for fields (url, events, secret, active, etc.)',
+        ),
+        offset: z.number().min(0).optional().describe('Items to skip — for list'),
+        limit: z.number().min(1).max(100).optional().describe('Items per page — for list'),
       }),
     },
-    async ({ offset, limit, params }) => {
-      const result = await client.get('/webhooks', { offset, limit, ...(params ?? {}) });
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'webhook_create',
-    {
-      description: 'Create a webhook. 웹훅을 생성합니다.',
-      inputSchema: z.object({
-        payload: z.record(z.unknown()).describe('Webhook create payload. See Modusign API docs for required fields.'),
-      }),
-    },
-    async ({ payload }) => {
-      const result = await client.post('/webhooks', payload);
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'webhook_get',
-    {
-      description: 'Get webhook details. 웹훅 상세 정보를 조회합니다.',
-      inputSchema: z.object({
-        webhookId: z.string().describe('Webhook ID'),
-      }),
-    },
-    async ({ webhookId }) => {
-      const result = await client.get(`/webhooks/${webhookId}`);
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'webhook_update',
-    {
-      description: 'Update a webhook. 웹훅을 수정합니다.',
-      inputSchema: z.object({
-        webhookId: z.string().describe('Webhook ID'),
-        payload: z.record(z.unknown()).describe('Webhook update payload. See Modusign API docs for updatable fields.'),
-      }),
-    },
-    async ({ webhookId, payload }) => {
-      const result = await client.put(`/webhooks/${webhookId}`, payload);
-      return jsonContent(result);
-    },
-  );
-
-  server.registerTool(
-    'webhook_delete',
-    {
-      description: 'Delete a webhook. 웹훅을 삭제합니다.',
-      inputSchema: z.object({
-        webhookId: z.string().describe('Webhook ID'),
-      }),
-    },
-    async ({ webhookId }) => {
-      const result = await client.delete(`/webhooks/${webhookId}`);
-      return jsonContent(result);
+    async ({ action, webhookId, payload, offset, limit }) => {
+      if (action === 'list') {
+        const result = await client.get('/webhooks', { offset, limit });
+        return jsonContent(result);
+      }
+      if (action === 'get') {
+        if (!webhookId) throw new Error('webhookId is required for action="get"');
+        const result = await client.get(`/webhooks/${webhookId}`);
+        return jsonContent(result);
+      }
+      if (action === 'create') {
+        const result = await client.post('/webhooks', payload ?? {});
+        return jsonContent(result);
+      }
+      if (action === 'update') {
+        if (!webhookId) throw new Error('webhookId is required for action="update"');
+        const result = await client.put(`/webhooks/${webhookId}`, payload ?? {});
+        return jsonContent(result);
+      }
+      if (action === 'delete') {
+        if (!webhookId) throw new Error('webhookId is required for action="delete"');
+        const result = await client.delete(`/webhooks/${webhookId}`);
+        return jsonContent(result);
+      }
+      throw new Error(`Unknown action: ${action}`);
     },
   );
 }

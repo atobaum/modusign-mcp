@@ -1,6 +1,6 @@
 {
   "name": "modusign-mcp",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "MCP server for Modusign (모두싸인) electronic contract & signature service",
   "type": "module",
   "main": "dist/index.js",
@@ -36,5 +36,14 @@
     "전자서명",
     "전자계약"
   ],
+  "author": "atobaum",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/atobaum/modusign-mcp.git"
+  },
+  "homepage": "https://github.com/atobaum/modusign-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/atobaum/modusign-mcp/issues"
+  },
   "license": "MIT"
 }

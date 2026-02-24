@@ -64,7 +64,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
   server.registerTool(
     'template_get',
     {
-      description: 'Get detailed information of a template including roles, input fields, and configuration. 템플릿의 상세 정보(역할, 입력 필드, 설정 등)를 조회합니다.',
+      description: 'Get detailed information of a template including participant roles, requester input fields, and configuration. 템플릿 상세 조회 — participantMappings에 사용할 role 이름과 requesterInputMappings에 사용할 dataLabel을 확인하려면 이 툴을 사용하세요.',
       inputSchema: z.object({
         templateId: z.string().describe('Template ID'),
       }),
