@@ -7,7 +7,7 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 
 ## 기능
 
-- **33개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 다운로드/병합, 유저/구독 조회 등
+- **30개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 다운로드/병합, 유저/구독 조회 등
 - **자동 Rate Limit 처리** — 429 응답 시 자동 재시도 (최대 3회)
 - **범용 MCP 호환** — stdio transport로 모든 MCP 클라이언트 지원
 - **TypeScript** — 타입 안전성 보장
@@ -164,16 +164,13 @@ npm run build
 
 ## 사용 가능한 Tool 목록
 
-### 문서 (20개)
+### 문서 (17개)
 
 | Tool | 설명 |
 |------|------|
 | `document_list` | 서명 문서 목록 조회 (상태/제목/날짜/라벨 필터, 정렬 지원) |
 | `document_get` | 문서 상세 정보 조회 |
-| `document_create` | 새 서명 요청 생성 (filePath/BASE64/FILE_REF, carbonCopies 지원) |
-| `document_create_from_template` | 템플릿으로 서명 요청 생성 (carbonCopies 지원) |
-| `document_create_embedded_draft` | 임베디드 초안 생성 |
-| `document_create_embedded_draft_from_template` | 템플릿으로 임베디드 초안 생성 |
+| `document_create` | 서명 요청 생성. `file` 또는 `templateId`로 파일/템플릿 분기. `embedded: true`로 임베디드 편집 URL 반환 |
 | `document_cancel` | 서명 요청 취소 (ON_GOING/SCHEDULED 상태만 가능) |
 | `document_remind` | 서명 알림 재전송 |
 | `document_request_correction` | 서명 내용 수정 요청 |
