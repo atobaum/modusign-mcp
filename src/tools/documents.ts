@@ -397,10 +397,11 @@ export function registerDocumentTools(
         "Cancel a pending signing request. Only works for documents in ON_GOING or SCHEDULED status. 서명 요청을 취소합니다. ON_GOING 또는 SCHEDULED 상태의 문서만 취소 가능합니다.",
       inputSchema: z.object({
         documentId: z.string().describe("Document ID to cancel"),
+        message: z.string().min(2).max(200).describe("Cancellation reason message (2-200 chars)"),
       }),
     },
-    async ({ documentId }) => {
-      const result = await client.post(`/documents/${documentId}/cancel`, {});
+    async ({ documentId, message }) => {
+      const result = await client.post(`/documents/${documentId}/cancel`, { message });
       return jsonContent(result);
     },
   );
