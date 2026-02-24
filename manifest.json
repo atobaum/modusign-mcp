@@ -1,0 +1,26 @@
+{
+  "manifest_version": "0.2",
+  "name": "modusign-mcp",
+  "display_name": "Modusign MCP",
+  "version": "1.0.0",
+  "description": "MCP server for Modusign (모두싸인) electronic contract & signature service",
+  "author": {
+    "name": "atobaum",
+    "email": "atobaum@gmail.com"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {
+        "MODUSIGN_EMAIL": "${config:MODUSIGN_EMAIL}",
+        "MODUSIGN_API_KEY": "${config:MODUSIGN_API_KEY}"
+      }
+    }
+  },
+  "license": "MIT"
+}

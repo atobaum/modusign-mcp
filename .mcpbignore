@@ -1,0 +1,22 @@
+# Credentials & secrets
+.mcp.json
+.env
+.env.*
+
+# OMC / Claude internal state
+.omc/
+.claude/
+
+# TypeScript source (only dist needed)
+src/
+tsconfig*.json
+*.ts
+!*.d.ts
+
+# CI/CD
+.github/
+
+# Dev/test files
+test-*.mjs
+*.test.*
+*.spec.*
