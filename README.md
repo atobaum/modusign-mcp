@@ -14,11 +14,14 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 
 ## 설치 및 설정
 
-### 1. API KEY 발급
+### 방법 1: .mcpb 번들 (권장)
 
-모두싸인 서비스에서 `설정 → API → API KEY` 메뉴에서 API KEY를 발급받으세요.
+[mcpbundles.com](https://www.mcpbundles.com) 또는 릴리즈 페이지에서 `modusign-mcp.mcpb` 파일을 다운로드한 후 Claude Desktop에서 한 번에 설치할 수 있습니다.
+설치 시 이메일, API Key, Base URL을 입력하는 UI가 자동으로 표시됩니다.
 
-### 2. Claude Desktop 설정
+### 방법 2: npx (Claude Desktop / Claude Code)
+
+#### Claude Desktop
 
 `claude_desktop_config.json`에 아래 내용을 추가하세요:
 
@@ -37,7 +40,7 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 }
 ```
 
-### 3. Claude Code 설정
+#### Claude Code
 
 프로젝트 루트의 `.mcp.json`에 추가:
 
@@ -56,7 +59,7 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 }
 ```
 
-### 4. 로컬 빌드로 실행 (개발용)
+### 방법 3: 로컬 빌드 (개발용)
 
 ```bash
 git clone <repo>
@@ -74,8 +77,30 @@ npm run build
 | 변수 | 필수 | 설명 |
 |------|------|------|
 | `MODUSIGN_EMAIL` | ✅ | 모두싸인 계정 이메일 |
-| `MODUSIGN_API_KEY` | ✅ | 모두싸인 API KEY |
+| `MODUSIGN_API_KEY` | ✅ | 모두싸인 API KEY (`설정 → API → API KEY`) |
 | `MODUSIGN_BASE_URL` | ❌ | API Base URL (기본값: `https://api.modusign.co.kr`) |
+
+## 파일 입력 방식
+
+`document_create`, `document_create_embedded_draft` 등 파일이 필요한 tool은 세 가지 방식을 지원합니다:
+
+| 방식 | 예시 | 설명 |
+|------|------|------|
+| **filePath** (권장) | `{ "filePath": "/Users/me/contract.pdf" }` | 로컬 파일 경로로 직접 업로드 |
+| **BASE64** | `{ "type": "BASE64", "base64": "...", "fileName": "contract.pdf" }` | Base64 인코딩된 파일 내용 |
+| **FILE_REF** | `{ "type": "FILE_REF", "value": { "fileId": "...", "token": "..." } }` | 이미 업로드된 파일 참조 |
+
+> **Claude Desktop 파일 드래그 주의**: 드래그 시 표시되는 `/mnt/user-data/uploads/...` 경로는 가상 경로입니다.
+> 실제 파일 경로(`/Users/이름/Downloads/파일명.pdf`)를 직접 입력하거나 BASE64 모드를 사용하세요.
+> (filePath 사용 시 shell fallback으로 자동 재시도합니다.)
+
+## 서명 방식 (signingMethod)
+
+| type | value | 설명 |
+|------|-------|------|
+| `EMAIL` | 이메일 주소 | 이메일로 서명 링크 발송 |
+| `KAKAO` | 전화번호 (예: `01012345678`) | 카카오톡으로 서명 링크 발송 |
+| `SECURE_LINK` | 이메일 또는 전화번호 | 보안 URL 직접 생성 (임베디드 서명에 사용) |
 
 ## 사용 가능한 Tool 목록
 
@@ -85,11 +110,11 @@ npm run build
 |------|------|
 | `document_list` | 서명 문서 목록 조회 (상태/제목/날짜/라벨 필터, 정렬 지원) |
 | `document_get` | 문서 상세 정보 조회 |
-| `document_create` | 새 서명 요청 생성 (BASE64/FILE_REF 지원, BASE64는 내부 업로드 후 FILE_REF 변환) |
+| `document_create` | 새 서명 요청 생성 (filePath/BASE64/FILE_REF 지원) |
 | `document_create_from_template` | 템플릿으로 서명 요청 생성 |
 | `document_create_embedded_draft` | 임베디드 초안 생성 |
 | `document_create_embedded_draft_from_template` | 템플릿으로 임베디드 초안 생성 |
-| `document_cancel` | 서명 요청 취소 |
+| `document_cancel` | 서명 요청 취소 (ON_GOING/SCHEDULED 상태만 가능) |
 | `document_remind` | 서명 알림 재전송 |
 | `document_request_correction` | 서명 내용 수정 요청 |
 | `document_change_due_date` | 서명 유효기간 변경 |
@@ -102,7 +127,7 @@ npm run build
 | `document_get_attachments` | 첨부파일 조회 |
 | `document_forward` | 완료된 문서 전달 (이메일/전화) |
 | `document_get_embedded_view` | 임베디드 문서보기 URL 조회 |
-| `document_get_signing_url` | 서명자 보안 링크 조회 (SECURE_LINK 방식) |
+| `document_get_signing_url` | 서명자 보안 링크 조회 (SECURE_LINK 방식 전용) |
 
 ### 템플릿 (6개)
 
@@ -146,12 +171,10 @@ npm run build
 |------|------|
 | `user_get_me` | 현재 인증된 사용자 정보 조회 |
 | `user_get_subscription` | 구독 정보 조회 |
-| `user_get_usage` | 사용량 조회 |
-| `health_check` | MCP 서버 상태 및 API 인증 확인 (API KEY 오류 시 안내) |
+| `user_get_usage` | 사용량 조회 (`from`, `to` ISO 8601 날짜 필수) |
+| `health_check` | MCP 서버 상태 및 API 인증 확인 |
 
 ## 사용 예시
-
-Claude에서 다음과 같이 사용할 수 있습니다:
 
 ```
 최근 서명 문서 목록 보여줘
@@ -162,11 +185,23 @@ Claude에서 다음과 같이 사용할 수 있습니다:
 ```
 
 ```
+/Users/me/Downloads/contract.pdf 파일로 김모두(kim@example.com)에게 서명 요청해줘
+```
+
+```
+010-1234-5678로 카카오톡 서명 요청 보내줘
+```
+
+```
 템플릿 목록을 보여주고, 근로계약서 템플릿으로 김모두(kim@example.com)에게 서명 요청해줘
 ```
 
 ```
-doc_12345 문서를 취소해줘. 사유는 "내용 수정 후 재발송 예정"
+doc_12345 문서를 취소해줘
+```
+
+```
+2026년 2월 사용량 조회해줘
 ```
 
 ## 문서 상태
@@ -189,10 +224,6 @@ doc_12345 문서를 취소해줘. 사유는 "내용 수정 후 재발송 예정"
 | 고비용 API (목록 조회, 서명 요청, 파일 업로드) | 150 | 5 |
 
 429 응답 시 `X-Retry-After` 헤더 기반으로 자동 재시도합니다 (최대 3회).
-
-## Roadmap
-
-현재 미구현 항목이 없습니다. ([API 문서](https://developers.modusign.co.kr/reference) 기준)
 
 ## 라이선스
 
