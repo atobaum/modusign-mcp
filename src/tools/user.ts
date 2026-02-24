@@ -54,4 +54,32 @@ export function registerUserTools(server: McpServer, client: ModusignClient): vo
       }
     },
   );
+
+  server.registerTool(
+    'user_get_subscription',
+    {
+      description: 'Get current subscription/plan information. 현재 구독(요금제) 정보를 조회합니다.',
+      inputSchema: z.object({}),
+    },
+    async () => {
+      const result = await client.get('/subscription');
+      return jsonContent(result);
+    },
+  );
+
+  server.registerTool(
+    'user_get_usage',
+    {
+      description: 'Get usage statistics. 사용량 정보를 조회합니다.',
+      inputSchema: z.object({
+        params: z.record(z.union([z.string(), z.number()])).optional().describe(
+          'Optional query params for usage range/grouping. Example: {"from":"2026-02-01T00:00:00+09:00","to":"2026-02-24T23:59:59+09:00","timezoneOffset":"+09:00"}',
+        ),
+      }),
+    },
+    async ({ params }) => {
+      const result = await client.get('/usages', params);
+      return jsonContent(result);
+    },
+  );
 }

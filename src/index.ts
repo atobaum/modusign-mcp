@@ -7,6 +7,8 @@ import { registerDocumentTools } from './tools/documents.js';
 import { registerTemplateTools } from './tools/templates.js';
 import { registerFileTools } from './tools/files.js';
 import { registerUserTools } from './tools/user.js';
+import { registerLabelTools } from './tools/labels.js';
+import { registerWebhookTools } from './tools/webhooks.js';
 
 const email = process.env.MODUSIGN_EMAIL;
 const apiKey = process.env.MODUSIGN_API_KEY;
@@ -35,6 +37,8 @@ registerDocumentTools(server, client);
 registerTemplateTools(server, client);
 registerFileTools(server, client);
 registerUserTools(server, client);
+registerLabelTools(server, client);
+registerWebhookTools(server, client);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

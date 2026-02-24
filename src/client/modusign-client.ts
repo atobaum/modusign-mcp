@@ -31,6 +31,10 @@ export class ModusignClient {
     return this.request<T>('PUT', path, { body });
   }
 
+  async delete<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>('DELETE', path, { body });
+  }
+
   async postFormData<T>(path: string, formData: FormData): Promise<T> {
     return this.request<T>('POST', path, {
       body: formData,
