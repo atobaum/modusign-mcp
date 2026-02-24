@@ -7,7 +7,7 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 
 ## 기능
 
-- **22개 MCP Tool** — 서명 요청, 문서 조회, 템플릿 관리, 파일 업로드, 헬스체크 등
+- **41개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 업로드, 유저/구독 조회 등
 - **자동 Rate Limit 처리** — 429 응답 시 자동 재시도 (최대 3회)
 - **범용 MCP 호환** — stdio transport로 모든 MCP 클라이언트 지원
 - **TypeScript** — 타입 안전성 보장
@@ -79,7 +79,7 @@ npm run build
 
 ## 사용 가능한 Tool 목록
 
-### 문서 (16개)
+### 문서 (20개)
 
 | Tool | 설명 |
 |------|------|
@@ -87,11 +87,15 @@ npm run build
 | `document_get` | 문서 상세 정보 조회 |
 | `document_create` | 새 서명 요청 생성 (PDF base64 또는 file_upload 결과 사용) |
 | `document_create_from_template` | 템플릿으로 서명 요청 생성 |
+| `document_create_embedded_draft` | 임베디드 초안 생성 |
+| `document_create_embedded_draft_from_template` | 템플릿으로 임베디드 초안 생성 |
 | `document_cancel` | 서명 요청 취소 |
 | `document_remind` | 서명 알림 재전송 |
 | `document_request_correction` | 서명 내용 수정 요청 |
 | `document_change_due_date` | 서명 유효기간 변경 |
 | `document_update_metadata` | 문서 메타데이터 변경 |
+| `document_add_label` | 문서에 라벨 추가 |
+| `document_remove_label` | 문서에서 라벨 제거 |
 | `document_get_history` | 문서 이력 조회 |
 | `document_get_requester_inputs` | 요청자 입력 정보 조회 |
 | `document_get_participant_fields` | 서명자 입력란 조회 |
@@ -100,12 +104,25 @@ npm run build
 | `document_get_embedded_view` | 임베디드 문서보기 URL 조회 |
 | `document_get_signing_url` | 서명자 보안 링크 조회 (SECURE_LINK 방식) |
 
-### 템플릿 (2개)
+### 템플릿 (6개)
 
 | Tool | 설명 |
 |------|------|
 | `template_list` | 템플릿 목록 조회 |
 | `template_get` | 템플릿 상세 정보 조회 |
+| `template_create_embedded` | 임베디드 템플릿 생성 URL 조회 |
+| `template_delete` | 템플릿 삭제 |
+| `template_update_metadata` | 템플릿 메타데이터 변경 |
+| `template_get_embedded_view` | 임베디드 템플릿보기 URL 조회 |
+
+### 라벨 (4개)
+
+| Tool | 설명 |
+|------|------|
+| `label_list` | 라벨 목록 조회 |
+| `label_create` | 라벨 생성 |
+| `label_update` | 라벨 수정 |
+| `label_delete` | 라벨 삭제 |
 
 ### 파일 (2개)
 
@@ -114,11 +131,23 @@ npm run build
 | `file_upload` | 파일 업로드 (base64 → multipart 변환, 2시간 유효) |
 | `file_merge` | 여러 PDF 파일 병합 |
 
-### 유저 / 유틸리티 (2개)
+### 웹훅 (5개)
+
+| Tool | 설명 |
+|------|------|
+| `webhook_list` | 웹훅 목록 조회 |
+| `webhook_create` | 웹훅 생성 |
+| `webhook_get` | 웹훅 상세 조회 |
+| `webhook_update` | 웹훅 수정 |
+| `webhook_delete` | 웹훅 삭제 |
+
+### 유저 / 유틸리티 (4개)
 
 | Tool | 설명 |
 |------|------|
 | `user_get_me` | 현재 인증된 사용자 정보 조회 |
+| `user_get_subscription` | 구독 정보 조회 |
+| `user_get_usage` | 사용량 조회 |
 | `health_check` | MCP 서버 상태 및 API 인증 확인 (API KEY 오류 시 안내) |
 
 ## 사용 예시
@@ -164,36 +193,7 @@ doc_12345 문서를 취소해줘. 사유는 "내용 수정 후 재발송 예정"
 
 ## Roadmap
 
-모두싸인 API 중 미구현 항목입니다. ([API 문서](https://developers.modusign.co.kr/reference) 기준)
-
-### 라벨 관리
-- [ ] `label_list` — 라벨 목록 조회
-- [ ] `label_create` — 라벨 생성
-- [ ] `label_update` — 라벨 수정
-- [ ] `label_delete` — 라벨 삭제
-- [ ] `document_add_label` — 문서에 라벨 추가
-- [ ] `document_remove_label` — 문서에서 라벨 제거
-
-### 템플릿 관리 (확장)
-- [ ] `template_create_embedded` — 임베디드 템플릿 생성
-- [ ] `template_delete` — 템플릿 삭제
-- [ ] `template_update_metadata` — 템플릿 메타데이터 변경
-- [ ] `template_get_embedded_view` — 임베디드 템플릿보기 URL 조회
-
-### 임베디드 초안
-- [ ] `document_create_embedded_draft` — 임베디드 초안 생성
-- [ ] `document_create_embedded_draft_from_template` — 템플릿으로 임베디드 초안 생성
-
-### 웹훅
-- [ ] `webhook_list` — 웹훅 목록 조회
-- [ ] `webhook_create` — 웹훅 생성
-- [ ] `webhook_get` — 웹훅 상세 조회
-- [ ] `webhook_update` — 웹훅 수정
-- [ ] `webhook_delete` — 웹훅 삭제
-
-### 유저 / 구독
-- [ ] `user_get_subscription` — 구독 정보 조회
-- [ ] `user_get_usage` — 사용량 조회
+현재 미구현 항목이 없습니다. ([API 문서](https://developers.modusign.co.kr/reference) 기준)
 
 ## 라이선스
 

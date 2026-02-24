@@ -18,7 +18,7 @@ npm start       # dist/index.js 직접 실행
 
 ## Architecture
 
-stdio transport 기반 MCP 서버. `src/index.ts`가 진입점으로 환경변수 검증 → `ModusignClient` 인스턴스 생성 → 4개 tool 모듈 등록 → `StdioServerTransport` 연결 순으로 초기화된다.
+stdio transport 기반 MCP 서버. `src/index.ts`가 진입점으로 환경변수 검증 → `ModusignClient` 인스턴스 생성 → 6개 tool 모듈 등록 → `StdioServerTransport` 연결 순으로 초기화된다.
 
 ```
 src/
@@ -28,10 +28,12 @@ src/
   utils/
     errors.ts               # ModusignApiError
   tools/
-    documents.ts            # 16개 tool
-    templates.ts            # 2개 tool
+    documents.ts            # 20개 tool
+    templates.ts            # 6개 tool
+    labels.ts               # 4개 tool
+    webhooks.ts             # 5개 tool
     files.ts                # 2개 tool
-    user.ts                 # 1개 tool
+    user.ts                 # 4개 tool
 ```
 
 ### Tool 등록 패턴
