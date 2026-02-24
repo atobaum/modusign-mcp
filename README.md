@@ -21,28 +21,11 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 
 ### 방법 2: npx (Claude Desktop / Claude Code)
 
-#### Claude Desktop
+#### Claude Desktop / Claude Code
 
-`claude_desktop_config.json`에 아래 내용을 추가하세요:
-
-```json
-{
-  "mcpServers": {
-    "modusign": {
-      "command": "npx",
-      "args": ["-y", "modusign-mcp"],
-      "env": {
-        "MODUSIGN_EMAIL": "your@email.com",
-        "MODUSIGN_API_KEY": "your-api-key"
-      }
-    }
-  }
-}
-```
-
-#### Claude Code
-
-프로젝트 루트의 `.mcp.json`에 추가:
+아래 설정을 추가하세요:
+- **Claude Desktop**: `claude_desktop_config.json`
+- **Claude Code**: 프로젝트 루트의 `.mcp.json`
 
 ```json
 {
