@@ -188,7 +188,22 @@ export function registerDocumentTools(
       if (metadatas && Object.keys(metadatas).length > 0) {
         params.metadatas = JSON.stringify(metadatas);
       }
-      const result = await client.get("/documents", params);
+      const result = await client.get("/documents", params) as Record<string, unknown>;
+      if (Array.isArray(result?.documents)) {
+        result.documents = (result.documents as Record<string, unknown>[]).map((doc) => {
+          const { file, auditTrail, ...rest } = doc;
+          const cleanedDoc: Record<string, unknown> = rest;
+          if (file && typeof file === "object") {
+            const { downloadUrl: _fd, ...fileRest } = file as Record<string, unknown>;
+            if (Object.keys(fileRest).length > 0) cleanedDoc.file = fileRest;
+          }
+          if (auditTrail && typeof auditTrail === "object") {
+            const { downloadUrl: _ad, ...auditRest } = auditTrail as Record<string, unknown>;
+            if (Object.keys(auditRest).length > 0) cleanedDoc.auditTrail = auditRest;
+          }
+          return cleanedDoc;
+        });
+      }
       return jsonContent(result);
     },
   );
