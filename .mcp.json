@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "modusign": {
+      "command": "node",
+      "args": ["${HOME}/test/modusign-mcp/dist/index.js"],
+      "env": {
+        "MODUSIGN_EMAIL": "${MODUSIGN_EMAIL}",
+        "MODUSIGN_API_KEY": "${MODUSIGN_API_KEY}",
+        "MODUSIGN_BASE_URL": "https://api-stage.modusign.co.kr"
+      }
+    }
+  }
+}
