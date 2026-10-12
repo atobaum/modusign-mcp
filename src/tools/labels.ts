@@ -1,18 +1,15 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { jsonContent } from '../utils/tool-result.js';
 import { ModusignClient, apiPath } from '../client/modusign-client.js';
-
-function jsonContent(data: unknown) {
-  return {
-    content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
+import { DESTRUCTIVE } from './annotations.js';
 
 export function registerLabelTools(server: McpServer, client: ModusignClient): void {
   server.registerTool(
     'label_manage',
     {
       description: 'Manage labels: list, create, update, or delete. 라벨 CRUD 통합 툴. action 파라미터로 작업을 선택합니다.',
+      annotations: DESTRUCTIVE,
       inputSchema: z.object({
         action: z.enum(['list', 'create', 'update', 'delete']).describe(
           'Action to perform: list=목록조회, create=생성, update=수정, delete=삭제',

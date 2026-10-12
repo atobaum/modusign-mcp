@@ -8,7 +8,7 @@ Claude Desktop, Claude Code, n8n, Codex 등 MCP를 지원하는 모든 환경에
 ## 기능
 
 - **30개 MCP Tool** — 서명 요청, 라벨/템플릿/웹훅 관리, 파일 다운로드/병합, 유저/구독 조회 등
-- **자동 Rate Limit 처리** — 429 응답 시 자동 재시도 (최대 3회)
+- **자동 재시도** — 429 응답 시 자동 재시도, GET 요청은 5xx·네트워크 오류에도 지수 백오프로 재시도 (최대 3회)
 - **범용 MCP 호환** — stdio transport로 모든 MCP 클라이언트 지원
 - **TypeScript** — 타입 안전성 보장
 
@@ -186,7 +186,7 @@ npm run build
 |------|------|
 | `document_list` | 서명 문서 목록 조회 (상태/제목/날짜/라벨 필터, 정렬 지원) |
 | `document_get` | 문서 상세 정보 조회 |
-| `document_download` | 문서 PDF를 로컬 파일시스템에 저장 |
+| `document_download` | 문서 PDF를 로컬 파일시스템에 저장 (기존 파일은 `overwrite: true`일 때만 덮어씀) |
 | `document_get_history` | 문서 이력 조회 (상태 변경, 서명 이벤트 등) |
 | `document_get_requester_inputs` | 요청자 입력 정보 조회 |
 | `document_get_participant_fields` | 서명자 입력란 정의 조회 |
@@ -268,7 +268,7 @@ doc_12345 문서를 취소해줘
 | 일반 API | 300 | 10 |
 | 고비용 API (목록 조회, 서명 요청, 파일 업로드) | 150 | 5 |
 
-429 응답 시 `X-Retry-After` 헤더 기반으로 자동 재시도합니다 (최대 3회).
+429 응답 시 `X-Retry-After` 헤더 기반으로 자동 재시도합니다 (최대 3회). GET 요청은 5xx 응답과 네트워크 오류에도 지수 백오프 + jitter로 재시도합니다. POST·PUT·DELETE는 중복 실행을 막기 위해 429 외에는 재시도하지 않습니다.
 
 ## 라이선스
 

@@ -8,8 +8,18 @@ import {
   toFileRef,
   toRequesterAttachments,
 } from "../utils/file-ref.js";
+import { jsonContent } from "../utils/tool-result.js";
+import {
+  LocaleSchema,
+  MetadataSchema,
+  ParticipantSchema,
+  SigningMethodSchema,
+} from "./schemas.js";
 import fs from "fs/promises";
 import path from "path";
+import { ADDITIVE, ADDITIVE_IDEMPOTENT, DESTRUCTIVE_IDEMPOTENT, READ_ONLY } from "./annotations.js";
+
+const MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024;
 
 const DocumentStatusEnum = z.enum([
   "DRAFT",
@@ -21,65 +31,26 @@ const DocumentStatusEnum = z.enum([
   "COMPLETED",
 ]);
 
-const SigningMethodSchema = z.object({
-  type: z
-    .enum(["EMAIL", "KAKAO", "SECURE_LINK"])
-    .describe(
-      "Notification/signing method. EMAIL: email notification, KAKAO: KakaoTalk via phone number (use when user provides a phone number), SECURE_LINK: direct secure URL",
-    ),
-  value: z
-    .string()
-    .describe(
-      "Email address for EMAIL, phone number for KAKAO (e.g. 01012345678), or email/phone number for SECURE_LINK (cannot be empty)",
-    ),
-});
-
-const ParticipantSchema = z.object({
-  type: z
-    .enum(["SIGNER", "VIEWER"])
-    .describe("SIGNER: signs the document, VIEWER: view only"),
-  role: z
-    .string()
-    .min(1)
-    .max(36)
-    .describe('Role name, unique per document (e.g. "근로자", "회사 대표")'),
-  name: z.string().min(2).max(30).describe("Participant name (2-30 chars)"),
-  signingOrder: z
-    .number()
-    .min(1)
-    .max(30)
-    .describe(
-      "Signing order. Use 1 for all participants for simultaneous signing, or 1,2,3... for sequential",
-    ),
-  signingMethod: SigningMethodSchema,
-  signingDuration: z
-    .number()
-    .min(60)
-    .max(525600)
-    .optional()
-    .describe(
-      "Signing validity in minutes. Default: 20160 (14 days). Max: 525600 (365 days)",
-    ),
-  requesterMessage: z
-    .string()
-    .max(1000)
-    .optional()
-    .describe("Message to the signer (max 1000 chars)"),
-  locale: z
-    .enum(["ko", "en", "zh-CN", "ja", "vi"])
-    .optional()
-    .describe("Signer UI language. Default: ko"),
-});
-
-const MetadataSchema = z.object({
-  key: z.string().min(1).max(40).describe("Metadata key (1-40 chars)"),
-  value: z.string().max(80).describe("Metadata value (max 80 chars)"),
-});
-
 const CarbonCopySchema = z.object({
-  name: z.string().min(2).max(30).describe("CC recipient name"),
-  email: z.string().email().describe("CC recipient email address"),
+  contact: z.string().min(1).max(100).describe("CC recipient email address or mobile number"),
+  locale: LocaleSchema.optional(),
 });
+
+type CreateMode = "file" | "template" | "embeddedFile" | "embeddedTemplate";
+
+const UNSUPPORTED_FIELDS: Record<CreateMode, string[]> = {
+  file: ["participantMappings", "requesterInputMappings", "redirectUrl"],
+  template: ["file", "participants", "requesterAttachments", "redirectUrl"],
+  embeddedFile: ["participantMappings", "requesterInputMappings", "requesterAttachments", "labelIds"],
+  embeddedTemplate: ["file", "participants", "requesterAttachments", "labelIds"],
+};
+
+function assertNoUnsupportedFields(mode: CreateMode, args: Record<string, unknown>): void {
+  const unsupported = UNSUPPORTED_FIELDS[mode].filter((field) => args[field] !== undefined);
+  if (unsupported.length > 0) {
+    throw new Error(`${unsupported.join(", ")} cannot be used in ${mode} mode`);
+  }
+}
 
 const TemplateParticipantMappingSchema = z.object({
   role: z.string().describe("Role name - must match template role exactly"),
@@ -92,18 +63,25 @@ const TemplateParticipantMappingSchema = z.object({
     .optional()
     .describe("Signing validity in minutes"),
   requesterMessage: z.string().max(1000).optional(),
-  locale: z.enum(["ko", "en", "zh-CN", "ja", "vi"]).optional(),
+  locale: LocaleSchema.optional(),
   excluded: z
     .boolean()
     .optional()
     .describe("Set true to exclude this participant from signing"),
 });
 
-
-function jsonContent(data: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  };
+function withoutDownloadUrls(doc: Record<string, unknown>): Record<string, unknown> {
+  const { file, auditTrail, ...rest } = doc;
+  const cleanedDoc: Record<string, unknown> = rest;
+  if (file && typeof file === "object") {
+    const { downloadUrl: _fd, ...fileRest } = file as Record<string, unknown>;
+    if (Object.keys(fileRest).length > 0) cleanedDoc.file = fileRest;
+  }
+  if (auditTrail && typeof auditTrail === "object") {
+    const { downloadUrl: _ad, ...auditRest } = auditTrail as Record<string, unknown>;
+    if (Object.keys(auditRest).length > 0) cleanedDoc.auditTrail = auditRest;
+  }
+  return cleanedDoc;
 }
 
 export function registerDocumentTools(
@@ -115,6 +93,7 @@ export function registerDocumentTools(
     {
       description:
         "List signing documents with pagination, filtering, and sorting. 서명 문서 목록을 조회합니다. 상태/제목/날짜/라벨로 필터링하고 정렬할 수 있습니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         offset: z
           .number()
@@ -191,19 +170,7 @@ export function registerDocumentTools(
       }
       const result = await client.get("/documents", params) as Record<string, unknown>;
       if (Array.isArray(result?.documents)) {
-        result.documents = (result.documents as Record<string, unknown>[]).map((doc) => {
-          const { file, auditTrail, ...rest } = doc;
-          const cleanedDoc: Record<string, unknown> = rest;
-          if (file && typeof file === "object") {
-            const { downloadUrl: _fd, ...fileRest } = file as Record<string, unknown>;
-            if (Object.keys(fileRest).length > 0) cleanedDoc.file = fileRest;
-          }
-          if (auditTrail && typeof auditTrail === "object") {
-            const { downloadUrl: _ad, ...auditRest } = auditTrail as Record<string, unknown>;
-            if (Object.keys(auditRest).length > 0) cleanedDoc.auditTrail = auditRest;
-          }
-          return cleanedDoc;
-        });
+        result.documents = (result.documents as Record<string, unknown>[]).map(withoutDownloadUrls);
       }
       return jsonContent(result);
     },
@@ -213,14 +180,15 @@ export function registerDocumentTools(
     "document_get",
     {
       description:
-        "Get detailed information of a specific document including status, participants, and file URLs. 문서 상세 정보를 조회합니다.",
+        "Get detailed information of a specific document including status and participants. Use document_download to save the PDF. 문서 상세 정보를 조회합니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
       }),
     },
     async ({ documentId }) => {
-      const result = await client.get(apiPath`/documents/${documentId}`);
-      return jsonContent(result);
+      const result = await client.get<Record<string, unknown>>(apiPath`/documents/${documentId}`);
+      return jsonContent(withoutDownloadUrls(result));
     },
   );
 
@@ -231,6 +199,7 @@ export function registerDocumentTools(
         "Create a signing request or an embedded draft URL (for iframe editing) from a file or a template. " +
         "파일 또는 템플릿으로 서명 요청을 생성하거나, embedded=true로 임베디드 편집 URL을 반환합니다. " +
         "templateId를 제공하면 템플릿 기반, file을 제공하면 파일 기반으로 동작합니다.",
+      annotations: ADDITIVE,
       inputSchema: z
         .object({
           title: z.string().min(1).max(100).describe("Document title (1-100 chars)"),
@@ -257,7 +226,7 @@ export function registerDocumentTools(
           requesterAttachments: z
             .array(RequesterAttachmentInputSchema)
             .optional()
-            .describe("Requester attachments (BASE64 or FILE_REF)"),
+            .describe("Requester attachments (BASE64 or FILE_REF) — file-based, non-embedded only"),
           // Template-based (required when file is not provided)
           templateId: z
             .string()
@@ -280,7 +249,7 @@ export function registerDocumentTools(
             .describe("Pre-fill requester input fields defined in the template"),
           // Common
           metadatas: z.array(MetadataSchema).max(10).optional(),
-          labelIds: z.array(z.string()).max(5).optional().describe("Label IDs to attach (max 5)"),
+          labelIds: z.array(z.string()).max(5).optional().describe("Label IDs to attach (max 5) — non-embedded only"),
           carbonCopies: z
             .array(CarbonCopySchema)
             .optional()
@@ -288,26 +257,32 @@ export function registerDocumentTools(
         })
         .passthrough(),
     },
-    async ({
-      title,
-      embedded,
-      redirectUrl,
-      file,
-      participants,
-      requesterAttachments,
-      templateId,
-      participantMappings,
-      requesterInputMappings,
-      metadatas,
-      labelIds,
-      carbonCopies,
-      ...rest
-    }) => {
+    async (args) => {
+      const {
+        title,
+        embedded,
+        redirectUrl,
+        file,
+        participants,
+        requesterAttachments,
+        templateId,
+        participantMappings,
+        requesterInputMappings,
+        metadatas,
+        labelIds,
+        carbonCopies,
+        ...rest
+      } = args;
+      const mode: CreateMode = embedded
+        ? templateId ? "embeddedTemplate" : "embeddedFile"
+        : templateId ? "template" : "file";
+      assertNoUnsupportedFields(mode, args);
+
       if (embedded) {
         if (templateId) {
           const body = {
             templateId,
-            document: { title, participantMappings, requesterInputMappings, metadatas, labelIds },
+            document: { title, participantMappings, requesterInputMappings, metadatas, carbonCopies },
             redirectUrl,
             ...rest,
           };
@@ -315,17 +290,13 @@ export function registerDocumentTools(
           return jsonContent(result);
         }
         if (!file) throw new Error("file is required when templateId is not provided");
-        const [fileRef, attachmentRefs] = await Promise.all([
-          toFileRef(client, file, "document", "embedded-draft"),
-          toRequesterAttachments(client, requesterAttachments),
-        ]);
+        const fileRef = await toFileRef(client, file, "document", "embedded-draft");
         const body = {
           title,
           file: fileRef,
-          requesterAttachments: attachmentRefs,
           participants,
           metadatas,
-          labelIds,
+          carbonCopies,
           redirectUrl,
           ...rest,
         };
@@ -373,6 +344,7 @@ export function registerDocumentTools(
     {
       description:
         "Cancel a pending signing request. Only works for documents in ON_GOING or SCHEDULED status. 서명 요청을 취소합니다. ON_GOING 또는 SCHEDULED 상태의 문서만 취소 가능합니다.",
+      annotations: DESTRUCTIVE_IDEMPOTENT,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID to cancel"),
         message: z.string().min(2).max(200).describe("Cancellation reason message (2-200 chars)"),
@@ -389,6 +361,7 @@ export function registerDocumentTools(
     {
       description:
         "Request a participant to correct their signed content. 서명 참여자에게 서명 내용 수정을 요청합니다.",
+      annotations: ADDITIVE,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
         participantId: z
@@ -415,6 +388,7 @@ export function registerDocumentTools(
     {
       description:
         "Resend signing notification to all current-order participants. 현재 서명 순서의 참여자들에게 서명 알림을 재전송합니다.",
+      annotations: ADDITIVE,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
       }),
@@ -432,6 +406,7 @@ export function registerDocumentTools(
     {
       description:
         "Change the signing deadline for current-order participants. 현재 서명 순서 참여자의 서명 유효기간을 변경합니다.",
+      annotations: DESTRUCTIVE_IDEMPOTENT,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
         datetime: z
@@ -455,6 +430,7 @@ export function registerDocumentTools(
     {
       description:
         "Replace all metadata on a document. Pass an empty array to clear all metadata. 문서 메타데이터를 변경합니다. 기존 메타데이터를 모두 교체합니다. 빈 배열을 전달하면 모든 메타데이터가 삭제됩니다.",
+      annotations: DESTRUCTIVE_IDEMPOTENT,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
         metadatas: z
@@ -478,6 +454,7 @@ export function registerDocumentTools(
     {
       description:
         "Add or remove a label on a document. 문서에 라벨을 추가하거나 제거합니다.",
+      annotations: ADDITIVE_IDEMPOTENT,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
         labelId: z.string().describe("Label ID"),
@@ -501,6 +478,7 @@ export function registerDocumentTools(
     {
       description:
         "Get the audit history of a document (status changes, signing events, etc). 문서의 이력(상태 변경, 서명 이벤트 등)을 조회합니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
       }),
@@ -516,6 +494,7 @@ export function registerDocumentTools(
     {
       description:
         "Get the requester's input field values for a document. 문서의 요청자 입력 정보를 조회합니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
       }),
@@ -533,6 +512,7 @@ export function registerDocumentTools(
     {
       description:
         "Get signer input field definitions for a document. 문서의 서명자 입력란 정의를 조회합니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
       }),
@@ -550,6 +530,7 @@ export function registerDocumentTools(
     {
       description:
         "Get attachments associated with a document. 문서에 첨부된 파일 목록을 조회합니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
       }),
@@ -565,6 +546,7 @@ export function registerDocumentTools(
     {
       description:
         "Forward a completed document to external recipients via email or phone. 완료된 문서를 이메일 또는 전화번호로 외부 수신자에게 전달합니다.",
+      annotations: ADDITIVE,
       inputSchema: z.object({
         documentId: z
           .string()
@@ -595,6 +577,7 @@ export function registerDocumentTools(
     {
       description:
         "Get an embedded document viewer URL for iframe integration. 임베디드 문서보기 URL을 조회합니다. iframe에서 문서를 표시할 수 있습니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
       }),
@@ -610,6 +593,7 @@ export function registerDocumentTools(
     {
       description:
         "Get a secure signing URL for a specific participant. ONLY works for participants with SECURE_LINK signing method. Returns 422 error for EMAIL or KAKAO participants. 특정 서명 참여자의 보안 서명 링크를 조회합니다. 반드시 SECURE_LINK 방식으로 등록된 참여자만 사용 가능하며, EMAIL/KAKAO 방식의 참여자에게는 422 오류가 반환됩니다.",
+      annotations: READ_ONLY,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
         participantId: z.string().describe("Participant ID"),
@@ -628,6 +612,7 @@ export function registerDocumentTools(
     {
       description:
         "Download a document's PDF file to the local filesystem. 문서의 PDF 파일을 로컬 파일시스템에 저장합니다. COMPLETED 상태 문서의 최종본을 다운로드할 때 유용합니다.",
+      annotations: DESTRUCTIVE_IDEMPOTENT,
       inputSchema: z.object({
         documentId: z.string().describe("Document ID"),
         outputPath: z
@@ -635,9 +620,13 @@ export function registerDocumentTools(
           .describe(
             'Absolute local file path to save the PDF (e.g. "/Users/you/Downloads/contract.pdf"). Must be inside MODUSIGN_ALLOWED_DIRS (default: ~/Downloads, ~/Documents)',
           ),
+        overwrite: z
+          .boolean()
+          .optional()
+          .describe("Overwrite outputPath if it already exists. Default: false. Ask the user before setting true."),
       }),
     },
-    async ({ documentId, outputPath }) => {
+    async ({ documentId, outputPath, overwrite }) => {
       const resolvedOutputPath = await assertWritablePath(outputPath);
       const doc = await client.get<Record<string, unknown>>(
         apiPath`/documents/${documentId}`,
@@ -655,9 +644,22 @@ export function registerDocumentTools(
       if (!response.ok) {
         throw new Error(`파일 다운로드 실패: ${response.status} ${response.statusText}`);
       }
+      if (Number(response.headers.get("Content-Length")) > MAX_DOWNLOAD_BYTES) {
+        throw new Error(`파일이 너무 큽니다 (최대 ${MAX_DOWNLOAD_BYTES} bytes).`);
+      }
       const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > MAX_DOWNLOAD_BYTES) {
+        throw new Error(`파일이 너무 큽니다 (최대 ${MAX_DOWNLOAD_BYTES} bytes).`);
+      }
       await fs.mkdir(path.dirname(resolvedOutputPath), { recursive: true });
-      await fs.writeFile(resolvedOutputPath, buffer);
+      try {
+        await fs.writeFile(resolvedOutputPath, buffer, { flag: overwrite ? "w" : "wx" });
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+          throw new Error(`이미 파일이 존재합니다: ${outputPath}\n덮어쓰려면 사용자 확인 후 overwrite: true로 다시 호출하세요.`);
+        }
+        throw err;
+      }
       return jsonContent({
         success: true,
         outputPath,

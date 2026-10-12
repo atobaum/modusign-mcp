@@ -25,12 +25,15 @@ stdio transport 기반 MCP 서버. `src/index.ts`가 진입점으로 환경변�
 src/
   index.ts                  # 진입점: env 검증, McpServer + StdioServerTransport
   client/
-    modusign-client.ts      # HTTP 클라이언트 (auth, 429 retry, OData filter)
+    modusign-client.ts      # HTTP 클라이언트 (auth, 429·5xx retry, OData filter)
   utils/
+    tool-result.ts          # jsonContent (compact JSON 응답)
     errors.ts               # ModusignApiError
     file-ref.ts             # filePath/BASE64/FILE_REF 입력을 업로드 후 FILE_REF로 변환
     path-guard.ts           # MODUSIGN_ALLOWED_DIRS 기반 로컬 경로 allowlist
   tools/
+    annotations.ts          # MCP tool annotations 상수 (readOnly/destructive/idempotent)
+    schemas.ts              # 여러 tool이 공유하는 zod 스키마
     documents.ts            # 17개 tool
     templates.ts            # 6개 tool
     labels.ts               # 1개 tool (label_manage, action 분기)
@@ -42,12 +45,13 @@ test/                       # vitest
 
 ### Tool 등록 패턴
 
-각 tool 모듈은 `register*Tools(server, client)` 함수를 export하며 내부에서 `server.registerTool(name, { description, inputSchema }, handler)` 형태로 등록한다. Zod 스키마가 MCP 클라이언트에 노출되는 JSON Schema로 변환된다.
+각 tool 모듈은 `register*Tools(server, client)` 함수를 export하며 내부에서 `server.registerTool(name, { description, annotations, inputSchema }, handler)` 형태로 등록한다. `annotations`는 `annotations.ts` 상수 중 하나를 반드시 지정한다. Zod 스키마가 MCP 클라이언트에 노출되는 JSON Schema로 변환된다.
 
 ### ModusignClient
 
 - `Authorization: Basic {base64(email:apiKey)}` 인증
 - 429 응답 시 `X-Retry-After` → `Retry-After` 순으로 헤더 참조(초 또는 HTTP-date, 없으면 1초), 최대 3회 자동 재시도
+- GET만 5xx·네트워크 오류에 지수 백오프 + jitter로 재시도 (timeout은 재시도하지 않음). POST 등은 중복 실행 위험 때문에 재시도하지 않는다
 - 모든 요청에 60초 timeout
 - path에 사용자 입력이 들어가면 반드시 `` apiPath`/documents/${id}` `` 태그로 인코딩
 - `buildODataFilter()` 정적 메서드로 document_list의 `$filter` 파라미터 생성. 모든 문자열 값은 작은따옴표 escape

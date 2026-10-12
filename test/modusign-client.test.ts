@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ModusignClient, apiPath, parseRetryAfterMs } from '../src/client/modusign-client.js';
+import { ModusignClient, apiPath, backoffMs, parseRetryAfterMs } from '../src/client/modusign-client.js';
 import { ModusignApiError } from '../src/utils/errors.js';
 
 describe('apiPath', () => {
@@ -80,5 +80,55 @@ describe('ModusignClient request', () => {
 
     await new ModusignClient('a@b.c', 'key', 'https://example.test').get('/user');
     expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('falls back to the default base URL when given an empty string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, {}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new ModusignClient('a@b.c', 'key', '').get('/user');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.modusign.co.kr/user');
+  });
+
+  it('keeps a path prefix in the base URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, {}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new ModusignClient('a@b.c', 'key', 'https://example.test/api/').get('/user');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://example.test/api/user');
+  });
+
+  it('retries GET on 5xx and network errors', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(503, {}))
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = new ModusignClient('a@b.c', 'key', 'https://example.test').get('/user');
+    await vi.runAllTimersAsync();
+    await expect(pending).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
+
+  it('does not retry POST on 5xx', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(503, {}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new ModusignClient('a@b.c', 'key', 'https://example.test');
+    await expect(client.post('/documents', {})).rejects.toBeInstanceOf(ModusignApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('backoffMs', () => {
+  it('grows exponentially with jitter and caps at 8s', () => {
+    expect(backoffMs(0, () => 0)).toBe(250);
+    expect(backoffMs(0, () => 1)).toBe(500);
+    expect(backoffMs(2, () => 1)).toBe(2000);
+    expect(backoffMs(10, () => 1)).toBe(8000);
   });
 });

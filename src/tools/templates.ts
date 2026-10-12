@@ -7,31 +7,9 @@ import {
   toFileRef,
   toRequesterAttachments,
 } from '../utils/file-ref.js';
-
-const MetadataSchema = z.object({
-  key: z.string().min(1).max(40).describe('Metadata key (1-40 chars)'),
-  value: z.string().max(80).describe('Metadata value (max 80 chars)'),
-});
-
-const EmbeddedTemplateParticipantSchema = z.object({
-  type: z.enum(['SIGNER', 'VIEWER']).describe('Participant type'),
-  role: z.string().min(1).max(36).describe('Role name for template'),
-  name: z.string().min(2).max(30).describe('Participant display name'),
-  signingOrder: z.number().min(1).max(30).describe('Signing order'),
-  signingMethod: z.object({
-    type: z.enum(['EMAIL', 'KAKAO', 'SECURE_LINK']).describe('Notification/signing method'),
-    value: z.string().describe('Method value'),
-  }),
-  signingDuration: z.number().min(60).max(525600).optional(),
-  requesterMessage: z.string().max(1000).optional(),
-  locale: z.enum(['ko', 'en', 'zh-CN', 'ja', 'vi']).optional(),
-});
-
-function jsonContent(data: unknown) {
-  return {
-    content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
+import { jsonContent } from '../utils/tool-result.js';
+import { MetadataSchema, ParticipantSchema } from './schemas.js';
+import { ADDITIVE, DESTRUCTIVE_IDEMPOTENT, READ_ONLY } from './annotations.js';
 
 function addCreateTemplateMode(url: string): string {
   try {
@@ -50,6 +28,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
     'template_list',
     {
       description: 'List available document templates with pagination. 사용 가능한 문서 템플릿 목록을 조회합니다.',
+      annotations: READ_ONLY,
       inputSchema: z.object({
         offset: z.number().min(0).optional().describe('Number of items to skip (default: 0)'),
         limit: z.number().min(1).max(100).optional().describe('Items per page (default: 10, max: 100)'),
@@ -65,6 +44,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
     'template_get',
     {
       description: 'Get detailed information of a template including participant roles, requester input fields, and configuration. 템플릿 상세 조회 — participantMappings에 사용할 role 이름과 requesterInputMappings에 사용할 dataLabel을 확인하려면 이 툴을 사용하세요.',
+      annotations: READ_ONLY,
       inputSchema: z.object({
         templateId: z.string().describe('Template ID'),
       }),
@@ -79,13 +59,14 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
     'template_create_embedded',
     {
       description: 'Create an embedded URL for template authoring. 임베디드 템플릿 생성용 URL을 반환합니다. 반환된 URL은 mode=create-template이 적용됩니다.',
+      annotations: ADDITIVE,
       inputSchema: z.object({
         title: z.string().min(1).max(100).describe('Draft title'),
         file: FileInputSchema.describe('Template source file (BASE64 or FILE_REF)'),
         requesterAttachments: z.array(RequesterAttachmentInputSchema)
           .optional()
           .describe('Requester attachments. Each item supports BASE64 or FILE_REF and is normalized to FILE_REF.'),
-        participants: z.array(EmbeddedTemplateParticipantSchema).min(1).describe('Participants for template draft'),
+        participants: z.array(ParticipantSchema).min(1).describe('Participants for template draft'),
         metadatas: z.array(MetadataSchema).max(10).optional(),
         labelIds: z.array(z.string()).max(5).optional(),
         redirectUrl: z.string().url().optional().describe('Optional redirect URL after embedded flow completes'),
@@ -130,6 +111,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
     'template_delete',
     {
       description: 'Delete templates. 템플릿을 삭제합니다.',
+      annotations: DESTRUCTIVE_IDEMPOTENT,
       inputSchema: z.object({
         templateIds: z.array(z.string()).min(1).optional().describe('Template IDs to delete'),
         templateId: z.string().optional().describe('Single template ID (alternative to templateIds)'),
@@ -149,6 +131,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
     'template_update_metadata',
     {
       description: 'Replace all metadata on a template. 템플릿 메타데이터를 전체 교체합니다.',
+      annotations: DESTRUCTIVE_IDEMPOTENT,
       inputSchema: z.object({
         templateId: z.string().describe('Template ID'),
         metadatas: z.array(MetadataSchema).max(10).describe('New metadata array'),
@@ -164,6 +147,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
     'template_get_embedded_view',
     {
       description: 'Get embedded template view URL. 임베디드 템플릿 보기 URL을 조회합니다.',
+      annotations: READ_ONLY,
       inputSchema: z.object({
         templateId: z.string().describe('Template ID'),
         redirectUrl: z.string().url().optional().describe('Optional redirect URL after embedded flow completes'),
