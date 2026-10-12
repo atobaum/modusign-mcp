@@ -18,7 +18,7 @@ export function registerWebhookTools(server: McpServer, client: ModusignClient):
           'Action to perform: list=목록조회, get=상세조회, create=생성, update=수정, delete=삭제',
         ),
         webhookId: z.string().optional().describe('Webhook ID — required for get, update, delete'),
-        payload: z.record(z.unknown()).optional().describe(
+        payload: z.record(z.string(), z.unknown()).optional().describe(
           'Webhook payload for create or update. See Modusign API docs for fields (url, events, secret, active, etc.)',
         ),
         offset: z.number().min(0).optional().describe('Items to skip — for list'),
