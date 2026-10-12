@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { readFile } from "fs/promises";
-import { basename } from "path";
+import { basename, parse } from "path";
 import { ModusignClient } from "../client/modusign-client.js";
 import { assertReadablePath } from "./path-guard.js";
 
@@ -49,6 +49,12 @@ export const RequesterAttachmentInputSchema = z.union([
   FileInputSchema,
   z
     .object({
+      name: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe("Attachment display name. Defaults to the file name"),
       file: FileInputSchema,
     })
     .passthrough(),
@@ -80,6 +86,10 @@ function resolveFileName(input: FileInput, fallbackBaseName: string): string {
     "extension" in input && input.extension ? input.extension : "pdf";
   const normalized = extension.replace(/^\./, "");
   return `${fallbackBaseName}.${normalized}`;
+}
+
+function uploadFileName(input: FileInput, fallbackBaseName: string): string {
+  return "filePath" in input ? basename(input.filePath) : resolveFileName(input, fallbackBaseName);
 }
 
 function resolveBase64(input: FileInput): string {
@@ -138,7 +148,7 @@ export async function toFileRef(
   if ("filePath" in input) {
     const resolvedPath = await assertReadablePath(input.filePath);
     const buffer = await readFile(resolvedPath);
-    return uploadBuffer(client, buffer, basename(input.filePath), uploadType);
+    return uploadBuffer(client, buffer, uploadFileName(input, fallbackBaseName), uploadType);
   }
 
   if (isValueFileRef(input)) {
@@ -146,7 +156,7 @@ export async function toFileRef(
   }
 
   // BASE64: upload then use FILE_REF
-  const fileName = resolveFileName(input, fallbackBaseName);
+  const fileName = uploadFileName(input, fallbackBaseName);
   const buffer = Buffer.from(resolveBase64(input), "base64");
   return uploadBuffer(client, buffer, fileName, uploadType);
 }
@@ -162,21 +172,14 @@ export async function toRequesterAttachments(
   const normalized = await Promise.all(
     attachments.map(async (attachment, index) => {
       const fallbackBaseName = `requester-attachment-${index + 1}`;
-      if (
-        typeof attachment === "object" &&
-        attachment !== null &&
-        "file" in attachment
-      ) {
-        const fileRef = await toFileRef(
-          client,
-          attachment.file,
-          "attachment",
-          fallbackBaseName,
-        );
-        return { ...attachment, file: fileRef };
-      }
-
-      return toFileRef(client, attachment, "attachment", fallbackBaseName);
+      const wrapped = "file" in attachment ? attachment : { file: attachment };
+      const fileName = uploadFileName(wrapped.file, fallbackBaseName);
+      const fileRef = await toFileRef(client, wrapped.file, "attachment", fallbackBaseName);
+      return {
+        ...wrapped,
+        name: wrapped.name ?? fileName,
+        file: { ...fileRef, name: parse(fileName).name },
+      };
     }),
   );
 

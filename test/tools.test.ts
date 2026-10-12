@@ -96,6 +96,28 @@ describe('document_create', () => {
     );
   });
 
+  it('sends requesterAttachments with name and file.name', async () => {
+    await call('document_create', {
+      title: '계약서',
+      file: fileRef,
+      participants: [participant],
+      requesterAttachments: [fileRef, { name: '별첨', file: fileRef }],
+    });
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/documents',
+      expect.objectContaining({
+        requesterAttachments: [
+          {
+            name: 'requester-attachment-1.pdf',
+            file: { fileId: 'f1', token: 't1', name: 'requester-attachment-1' },
+          },
+          { name: '별첨', file: { fileId: 'f1', token: 't1', name: 'requester-attachment-2' } },
+        ],
+      }),
+    );
+  });
+
   it('forwards carbonCopies for embedded drafts', async () => {
     await call('document_create', {
       title: '계약서',
