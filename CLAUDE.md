@@ -12,9 +12,10 @@ https://developers.modusign.co.kr/reference
 npm run build   # TypeScript 컴파일 → dist/
 npm run dev     # watch 모드 (tsc --watch)
 npm start       # dist/index.js 직접 실행
+npm test        # vitest (test/*.test.ts)
 ```
 
-테스트 프레임워크 없음. 동작 확인은 `.mcp.json` 설정 후 MCP 클라이언트에서 직접 호출.
+Node 24 LTS(`.nvmrc`), TypeScript 7, zod 4 기준. 실제 API 동작 확인은 `.mcp.json` 설정 후 MCP 클라이언트에서 직접 호출.
 
 ## Architecture
 
@@ -27,24 +28,29 @@ src/
     modusign-client.ts      # HTTP 클라이언트 (auth, 429 retry, OData filter)
   utils/
     errors.ts               # ModusignApiError
+    file-ref.ts             # filePath/BASE64/FILE_REF 입력을 업로드 후 FILE_REF로 변환
+    path-guard.ts           # MODUSIGN_ALLOWED_DIRS 기반 로컬 경로 allowlist
   tools/
-    documents.ts            # 20개 tool
+    documents.ts            # 17개 tool
     templates.ts            # 6개 tool
-    labels.ts               # 4개 tool
-    webhooks.ts             # 5개 tool
+    labels.ts               # 1개 tool (label_manage, action 분기)
+    webhooks.ts             # 1개 tool (webhook_manage, action 분기)
     files.ts                # 1개 tool
     user.ts                 # 4개 tool
+test/                       # vitest
 ```
 
 ### Tool 등록 패턴
 
-각 tool 모듈은 `register*Tools(server, client)` 함수를 export하며 내부에서 `server.tool(name, description, zodSchema, handler)` 형태로 등록한다. Zod 스키마가 MCP 클라이언트에 노출되는 JSON Schema로 변환된다.
+각 tool 모듈은 `register*Tools(server, client)` 함수를 export하며 내부에서 `server.registerTool(name, { description, inputSchema }, handler)` 형태로 등록한다. Zod 스키마가 MCP 클라이언트에 노출되는 JSON Schema로 변환된다.
 
 ### ModusignClient
 
 - `Authorization: Basic {base64(email:apiKey)}` 인증
-- 429 응답 시 `X-Retry-After` → `Retry-After` → `'1'` 순으로 헤더 참조, 최대 3회 자동 재시도
-- `buildODataFilter()` 정적 메서드로 document_list의 `$filter` 파라미터 생성
+- 429 응답 시 `X-Retry-After` → `Retry-After` 순으로 헤더 참조(초 또는 HTTP-date, 없으면 1초), 최대 3회 자동 재시도
+- 모든 요청에 60초 timeout
+- path에 사용자 입력이 들어가면 반드시 `` apiPath`/documents/${id}` `` 태그로 인코딩
+- `buildODataFilter()` 정적 메서드로 document_list의 `$filter` 파라미터 생성. 모든 문자열 값은 작은따옴표 escape
 - `postFormData()` 메서드: FormData를 넘기면 Content-Type 헤더를 자동으로 omit (브라우저가 multipart boundary 자동 설정)
 
 ## 환경변수
@@ -54,12 +60,15 @@ src/
 | `MODUSIGN_EMAIL` | ✅ | 모두싸인 계정 이메일 |
 | `MODUSIGN_API_KEY` | ✅ | 모두싸인 API KEY |
 | `MODUSIGN_BASE_URL` | ❌ | API Base URL (기본값: `https://api.modusign.co.kr`) |
+| `MODUSIGN_ALLOWED_DIRS` | ❌ | 로컬 파일 읽기·쓰기 허용 디렉토리 (`path.delimiter` 구분, 기본값: `~/Downloads`, `~/Documents`) |
+
+로컬 파일을 읽거나 쓰는 tool은 반드시 `path-guard.ts`의 `assertReadablePath`/`assertWritablePath`를 거친다.
 
 ## 주요 API 제약사항 (라이브 테스트 확인)
 
 - **`document_get_signing_url`**: `SECURE_LINK` 방식 참여자 전용. EMAIL/KAKAO 방식에 호출하면 422 반환.
 - **SECURE_LINK `value`**: 빈 문자열 불가, 이메일 또는 전화번호 필수.
-- **`document_create_from_template`의 `role`**: 템플릿에 정의된 역할명과 정확히 일치해야 함.
+- **`document_create`(templateId)의 `participantMappings[].role`**: 템플릿에 정의된 역할명과 정확히 일치해야 함.
 - **`template_list` limit 파라미터**: 반드시 number 타입으로 전달 (string 전달 시 MCP SDK 검증 오류).
 
 ## 빌드 결과물

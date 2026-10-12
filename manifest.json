@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "modusign-mcp",
   "display_name": "Modusign MCP",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "MCP server for Modusign (모두싸인) electronic contract & signature service",
   "author": {
     "name": "atobaum",
@@ -28,6 +28,13 @@
       "description": "Modusign API 기본 URL. 기본값: https://api.modusign.co.kr",
       "required": false,
       "default": "https://api.modusign.co.kr"
+    },
+    "allowed_dirs": {
+      "type": "string",
+      "title": "허용 디렉토리 (선택)",
+      "description": "파일 업로드·다운로드를 허용할 디렉토리. 여러 개는 ':'로 구분(Windows는 ';'). 기본값: ~/Downloads, ~/Documents",
+      "required": false,
+      "default": ""
     }
   },
   "server": {
@@ -41,7 +48,8 @@
       "env": {
         "MODUSIGN_EMAIL": "${user_config.email}",
         "MODUSIGN_API_KEY": "${user_config.api_key}",
-        "MODUSIGN_BASE_URL": "${user_config.base_url}"
+        "MODUSIGN_BASE_URL": "${user_config.base_url}",
+        "MODUSIGN_ALLOWED_DIRS": "${user_config.allowed_dirs}"
       }
     }
   },

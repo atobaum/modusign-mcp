@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ModusignClient } from '../client/modusign-client.js';
+import { ModusignClient, apiPath } from '../client/modusign-client.js';
 
 function jsonContent(data: unknown) {
   return {
@@ -36,12 +36,12 @@ export function registerLabelTools(server: McpServer, client: ModusignClient): v
       }
       if (action === 'update') {
         if (!labelId) throw new Error('labelId is required for action="update"');
-        const result = await client.put(`/labels/${labelId}`, { name, color });
+        const result = await client.put(apiPath`/labels/${labelId}`, { name, color });
         return jsonContent(result);
       }
       if (action === 'delete') {
         if (!labelId) throw new Error('labelId is required for action="delete"');
-        const result = await client.delete(`/labels/${labelId}`);
+        const result = await client.delete(apiPath`/labels/${labelId}`);
         return jsonContent(result);
       }
       throw new Error(`Unknown action: ${action}`);

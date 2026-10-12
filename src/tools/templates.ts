@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ModusignClient } from '../client/modusign-client.js';
+import { ModusignClient, apiPath } from '../client/modusign-client.js';
 import {
   FileInputSchema,
   RequesterAttachmentInputSchema,
@@ -70,7 +70,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
       }),
     },
     async ({ templateId }) => {
-      const result = await client.get(`/templates/${templateId}`);
+      const result = await client.get(apiPath`/templates/${templateId}`);
       return jsonContent(result);
     },
   );
@@ -155,7 +155,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
       }),
     },
     async ({ templateId, metadatas }) => {
-      const result = await client.put(`/templates/${templateId}/metadatas`, { metadatas });
+      const result = await client.put(apiPath`/templates/${templateId}/metadatas`, { metadatas });
       return jsonContent(result);
     },
   );
@@ -170,7 +170,7 @@ export function registerTemplateTools(server: McpServer, client: ModusignClient)
       }),
     },
     async ({ templateId, redirectUrl }) => {
-      const result = await client.get(`/templates/${templateId}/embedded-view`, { redirectUrl });
+      const result = await client.get(apiPath`/templates/${templateId}/embedded-view`, { redirectUrl });
       return jsonContent(result);
     },
   );

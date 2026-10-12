@@ -139,6 +139,7 @@ npm run build
 | `MODUSIGN_EMAIL` | ✅ | 모두싸인 계정 이메일 |
 | `MODUSIGN_API_KEY` | ✅ | 모두싸인 API KEY (`설정 → API → API KEY`) |
 | `MODUSIGN_BASE_URL` | ❌ | API Base URL (기본값: `https://api.modusign.co.kr`) |
+| `MODUSIGN_ALLOWED_DIRS` | ❌ | `filePath` 업로드와 `document_download` 저장을 허용할 디렉토리. 여러 개는 `:`로 구분(Windows는 `;`). 기본값은 `~/Downloads`, `~/Documents` |
 
 ## 파일 입력 방식
 
@@ -146,14 +147,12 @@ npm run build
 
 | 방식 | 예시 | 설명 |
 |------|------|------|
-| **filePath** (권장) | `{ "filePath": "/Users/me/contract.pdf" }` | 로컬 파일 경로로 직접 업로드 |
+| **filePath** (권장) | `{ "filePath": "/Users/me/Downloads/contract.pdf" }` | 로컬 파일 경로로 직접 업로드. `MODUSIGN_ALLOWED_DIRS` 안의 절대 경로만 허용 |
 | **BASE64** | `{ "type": "BASE64", "base64": "...", "fileName": "contract.pdf" }` | Base64 인코딩된 파일 내용 |
 | **FILE_REF** | `{ "type": "FILE_REF", "value": { "fileId": "...", "token": "..." } }` | 이미 업로드된 파일 참조 |
 
 > **Claude Desktop 파일 드래그 주의**: 드래그 시 표시되는 `/mnt/user-data/uploads/...` 경로는 가상 경로입니다.
 > 실제 파일 경로(`/Users/이름/Downloads/파일명.pdf`)를 직접 입력하거나 BASE64 모드를 사용하세요.
-> (filePath 사용 시 shell fallback으로 자동 재시도합니다.)
-
 ## 서명 방식 (signingMethod)
 
 | type | value | 설명 |

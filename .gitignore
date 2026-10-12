@@ -10,6 +10,7 @@ dist/
 # Environment & secrets
 .env
 .env.*
+!.env.example
 
 # MCP config with credentials
 .mcp.json

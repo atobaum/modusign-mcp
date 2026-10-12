@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { readFile } from "fs/promises";
 import { basename } from "path";
-import { spawnSync } from "child_process";
 import { ModusignClient } from "../client/modusign-client.js";
+import { assertReadablePath } from "./path-guard.js";
 
 const FileRefSchema = z.object({
   fileId: z.string(),
@@ -35,7 +35,7 @@ const FilePathSchema = z.object({
   filePath: z
     .string()
     .describe(
-      "Absolute local file path to upload (e.g. /Users/you/contract.pdf). NOTE: Claude Desktop drag-and-drop paths (/mnt/user-data/uploads/...) are NOT real filesystem paths — ask the user for the actual path or use BASE64 mode instead.",
+      "Absolute local file path to upload (e.g. /Users/you/Downloads/contract.pdf). Must be inside MODUSIGN_ALLOWED_DIRS (default: ~/Downloads, ~/Documents). NOTE: Claude Desktop drag-and-drop paths (/mnt/user-data/uploads/...) are NOT real filesystem paths — ask the user for the actual path or use BASE64 mode instead.",
     ),
 });
 
@@ -136,27 +136,9 @@ export async function toFileRef(
 ): Promise<FileRef> {
   // FILE_PATH: read from disk and upload (preferred)
   if ("filePath" in input) {
-    const fileName = basename(input.filePath);
-    let buffer: Buffer;
-    try {
-      buffer = await readFile(input.filePath);
-    } catch (err: unknown) {
-      // Fallback: some paths (e.g. /mnt/user-data/uploads/ in Claude Desktop)
-      // are accessible via shell but not directly via Node.js fs.
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        const result = spawnSync("cat", [input.filePath]);
-        if (result.error || result.status !== 0) {
-          throw new Error(
-            `파일을 읽을 수 없습니다: ${input.filePath}\n` +
-            `실제 파일시스템 경로를 확인하거나 BASE64 모드를 사용해주세요.`,
-          );
-        }
-        buffer = result.stdout as Buffer;
-      } else {
-        throw err;
-      }
-    }
-    return uploadBuffer(client, buffer, fileName, uploadType);
+    const resolvedPath = await assertReadablePath(input.filePath);
+    const buffer = await readFile(resolvedPath);
+    return uploadBuffer(client, buffer, basename(input.filePath), uploadType);
   }
 
   if (isValueFileRef(input)) {
