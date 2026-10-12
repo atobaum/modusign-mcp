@@ -1,13 +1,9 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { jsonContent } from '../utils/tool-result.js';
 import { ModusignClient } from '../client/modusign-client.js';
 import { ModusignApiError } from '../utils/errors.js';
-
-function jsonContent(data: unknown) {
-  return {
-    content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
+import { READ_ONLY } from './annotations.js';
 
 export function registerUserTools(server: McpServer, client: ModusignClient): void {
 
@@ -15,6 +11,7 @@ export function registerUserTools(server: McpServer, client: ModusignClient): vo
     'user_get_me',
     {
       description: 'Get information about the currently authenticated user (name, email, plan, etc). 현재 인증된 사용자의 정보(이름, 이메일, 요금제 등)를 조회합니다.',
+      annotations: READ_ONLY,
       inputSchema: z.object({}),
     },
     async () => {
@@ -27,6 +24,7 @@ export function registerUserTools(server: McpServer, client: ModusignClient): vo
     'health_check',
     {
       description: 'Check MCP server health and verify API credentials. Returns server status and authenticated user info. API 키가 유효한지 확인하고 서버 상태를 반환합니다.',
+      annotations: READ_ONLY,
       inputSchema: z.object({}),
     },
     async () => {
@@ -39,16 +37,11 @@ export function registerUserTools(server: McpServer, client: ModusignClient): vo
         });
       } catch (err) {
         if (err instanceof ModusignApiError && (err.statusCode === 401 || err.statusCode === 403)) {
-          return {
-            content: [{
-              type: 'text' as const,
-              text: JSON.stringify({
-                status: 'error',
-                authenticated: false,
-                message: 'API 인증 실패: MODUSIGN_EMAIL 또는 MODUSIGN_API_KEY가 올바르지 않습니다. 모두싸인 설정 → API → API KEY 메뉴에서 키를 확인하세요.',
-              }, null, 2),
-            }],
-          };
+          return jsonContent({
+            status: 'error',
+            authenticated: false,
+            message: 'API 인증 실패: MODUSIGN_EMAIL 또는 MODUSIGN_API_KEY가 올바르지 않습니다. 모두싸인 설정 → API → API KEY 메뉴에서 키를 확인하세요.',
+          });
         }
         throw err;
       }
@@ -59,6 +52,7 @@ export function registerUserTools(server: McpServer, client: ModusignClient): vo
     'user_get_subscription',
     {
       description: 'Get current subscription/plan information. 현재 구독(요금제) 정보를 조회합니다.',
+      annotations: READ_ONLY,
       inputSchema: z.object({}),
     },
     async () => {
@@ -71,6 +65,7 @@ export function registerUserTools(server: McpServer, client: ModusignClient): vo
     'user_get_usage',
     {
       description: 'Get usage statistics for a date range. 사용량 정보를 조회합니다. from/to는 필수입니다.',
+      annotations: READ_ONLY,
       inputSchema: z.object({
         from: z.string().describe('Start datetime in ISO 8601 format (e.g. 2026-02-01T00:00:00+09:00)'),
         to: z.string().describe('End datetime in ISO 8601 format (e.g. 2026-02-28T23:59:59+09:00)'),

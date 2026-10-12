@@ -14,6 +14,7 @@ dist/
 
 # MCP config with credentials
 .mcp.json
+.envrc
 
 # MCP bundle output
 *.mcpb
