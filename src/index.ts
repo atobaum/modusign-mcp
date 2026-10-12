@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ModusignClient } from './client/modusign-client.js';
@@ -28,9 +29,11 @@ if (!email || !apiKey) {
 
 const client = new ModusignClient(email, apiKey, process.env.MODUSIGN_BASE_URL);
 
+const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
+
 const server = new McpServer({
   name: 'modusign-mcp',
-  version: '1.0.0',
+  version,
 });
 
 registerDocumentTools(server, client);

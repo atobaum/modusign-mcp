@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "modusign-mcp",
   "display_name": "Modusign MCP",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "MCP server for Modusign (모두싸인) electronic contract & signature service",
   "author": {
     "name": "atobaum",
