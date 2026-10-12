@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ModusignClient } from "../client/modusign-client.js";
+import { ModusignClient, REQUEST_TIMEOUT_MS, apiPath } from "../client/modusign-client.js";
+import { assertWritablePath } from "../utils/path-guard.js";
 import {
   FileInputSchema,
   RequesterAttachmentInputSchema,
@@ -218,7 +219,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId }) => {
-      const result = await client.get(`/documents/${documentId}`);
+      const result = await client.get(apiPath`/documents/${documentId}`);
       return jsonContent(result);
     },
   );
@@ -333,14 +334,21 @@ export function registerDocumentTools(
       }
       // Non-embedded (default): direct signing request
       if (templateId) {
+        if (!participantMappings?.length) {
+          throw new Error("participantMappings is required when using templateId");
+        }
         const body = {
           templateId,
           document: { title, participantMappings, requesterInputMappings, metadatas, labelIds, carbonCopies },
+          ...rest,
         };
         const result = await client.post("/documents/request-with-template", body);
         return jsonContent(result);
       }
       if (!file) throw new Error("file is required when templateId is not provided");
+      if (!participants?.length) {
+        throw new Error("participants is required when using file");
+      }
       const [fileRef, attachmentRefs] = await Promise.all([
         toFileRef(client, file, "document", "document"),
         toRequesterAttachments(client, requesterAttachments),
@@ -353,6 +361,7 @@ export function registerDocumentTools(
         metadatas,
         labelIds,
         carbonCopies,
+        ...rest,
       };
       const result = await client.post("/documents", body);
       return jsonContent({ ...(result as object), uploadedFileRef: fileRef });
@@ -370,7 +379,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId, message }) => {
-      const result = await client.post(`/documents/${documentId}/cancel`, { message });
+      const result = await client.post(apiPath`/documents/${documentId}/cancel`, { message });
       return jsonContent(result);
     },
   );
@@ -394,7 +403,7 @@ export function registerDocumentTools(
     },
     async ({ documentId, participantId, message }) => {
       const result = await client.post(
-        `/documents/${documentId}/request-correction`,
+        apiPath`/documents/${documentId}/request-correction`,
         { participantId, message },
       );
       return jsonContent(result);
@@ -412,7 +421,7 @@ export function registerDocumentTools(
     },
     async ({ documentId }) => {
       const result = await client.post(
-        `/documents/${documentId}/remind-signing`,
+        apiPath`/documents/${documentId}/remind-signing`,
       );
       return jsonContent(result);
     },
@@ -434,7 +443,7 @@ export function registerDocumentTools(
     },
     async ({ documentId, datetime }) => {
       const result = await client.put(
-        `/documents/${documentId}/change-signing-due`,
+        apiPath`/documents/${documentId}/change-signing-due`,
         { datetime },
       );
       return jsonContent(result);
@@ -457,7 +466,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId, metadatas }) => {
-      const result = await client.put(`/documents/${documentId}/metadatas`, {
+      const result = await client.put(apiPath`/documents/${documentId}/metadatas`, {
         metadatas,
       });
       return jsonContent(result);
@@ -478,7 +487,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId, labelId, action }) => {
-      const path = `/documents/${documentId}/labels/${labelId}`;
+      const path = apiPath`/documents/${documentId}/labels/${labelId}`;
       const result =
         action === "add"
           ? await client.post(path)
@@ -497,7 +506,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId }) => {
-      const result = await client.get(`/documents/${documentId}/histories`);
+      const result = await client.get(apiPath`/documents/${documentId}/histories`);
       return jsonContent(result);
     },
   );
@@ -513,7 +522,7 @@ export function registerDocumentTools(
     },
     async ({ documentId }) => {
       const result = await client.get(
-        `/documents/${documentId}/requester-inputs`,
+        apiPath`/documents/${documentId}/requester-inputs`,
       );
       return jsonContent(result);
     },
@@ -530,7 +539,7 @@ export function registerDocumentTools(
     },
     async ({ documentId }) => {
       const result = await client.get(
-        `/documents/${documentId}/participant-fields`,
+        apiPath`/documents/${documentId}/participant-fields`,
       );
       return jsonContent(result);
     },
@@ -546,7 +555,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId }) => {
-      const result = await client.get(`/documents/${documentId}/attachments`);
+      const result = await client.get(apiPath`/documents/${documentId}/attachments`);
       return jsonContent(result);
     },
   );
@@ -573,7 +582,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId, contacts, message }) => {
-      const result = await client.post(`/documents/${documentId}/forward`, {
+      const result = await client.post(apiPath`/documents/${documentId}/forward`, {
         contacts,
         message,
       });
@@ -591,7 +600,7 @@ export function registerDocumentTools(
       }),
     },
     async ({ documentId }) => {
-      const result = await client.get(`/documents/${documentId}/embedded-view`);
+      const result = await client.get(apiPath`/documents/${documentId}/embedded-view`);
       return jsonContent(result);
     },
   );
@@ -608,7 +617,7 @@ export function registerDocumentTools(
     },
     async ({ documentId, participantId }) => {
       const result = await client.get(
-        `/documents/${documentId}/participants/${participantId}/embedded-view`,
+        apiPath`/documents/${documentId}/participants/${participantId}/embedded-view`,
       );
       return jsonContent(result);
     },
@@ -624,13 +633,14 @@ export function registerDocumentTools(
         outputPath: z
           .string()
           .describe(
-            'Local file path to save the PDF (e.g. "/Users/you/Downloads/contract.pdf")',
+            'Absolute local file path to save the PDF (e.g. "/Users/you/Downloads/contract.pdf"). Must be inside MODUSIGN_ALLOWED_DIRS (default: ~/Downloads, ~/Documents)',
           ),
       }),
     },
     async ({ documentId, outputPath }) => {
+      const resolvedOutputPath = await assertWritablePath(outputPath);
       const doc = await client.get<Record<string, unknown>>(
-        `/documents/${documentId}`,
+        apiPath`/documents/${documentId}`,
       );
       const file = doc.file as Record<string, unknown> | undefined;
       const downloadUrl =
@@ -639,14 +649,15 @@ export function registerDocumentTools(
       if (!downloadUrl) {
         throw new Error("문서에서 다운로드 URL을 찾을 수 없습니다.");
       }
-      const response = await fetch(downloadUrl);
+      const response = await fetch(downloadUrl, {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
       if (!response.ok) {
         throw new Error(`파일 다운로드 실패: ${response.status} ${response.statusText}`);
       }
       const buffer = Buffer.from(await response.arrayBuffer());
-      const dir = path.dirname(outputPath);
-      await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(outputPath, buffer);
+      await fs.mkdir(path.dirname(resolvedOutputPath), { recursive: true });
+      await fs.writeFile(resolvedOutputPath, buffer);
       return jsonContent({
         success: true,
         outputPath,

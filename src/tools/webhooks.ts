@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ModusignClient } from '../client/modusign-client.js';
+import { ModusignClient, apiPath } from '../client/modusign-client.js';
 
 function jsonContent(data: unknown) {
   return {
@@ -32,7 +32,7 @@ export function registerWebhookTools(server: McpServer, client: ModusignClient):
       }
       if (action === 'get') {
         if (!webhookId) throw new Error('webhookId is required for action="get"');
-        const result = await client.get(`/webhooks/${webhookId}`);
+        const result = await client.get(apiPath`/webhooks/${webhookId}`);
         return jsonContent(result);
       }
       if (action === 'create') {
@@ -41,12 +41,12 @@ export function registerWebhookTools(server: McpServer, client: ModusignClient):
       }
       if (action === 'update') {
         if (!webhookId) throw new Error('webhookId is required for action="update"');
-        const result = await client.put(`/webhooks/${webhookId}`, payload ?? {});
+        const result = await client.put(apiPath`/webhooks/${webhookId}`, payload ?? {});
         return jsonContent(result);
       }
       if (action === 'delete') {
         if (!webhookId) throw new Error('webhookId is required for action="delete"');
-        const result = await client.delete(`/webhooks/${webhookId}`);
+        const result = await client.delete(apiPath`/webhooks/${webhookId}`);
         return jsonContent(result);
       }
       throw new Error(`Unknown action: ${action}`);

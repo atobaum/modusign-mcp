@@ -2,6 +2,27 @@ import { ModusignApiError } from '../utils/errors.js';
 
 const DEFAULT_BASE_URL = 'https://api.modusign.co.kr';
 const MAX_RETRIES = 3;
+const DEFAULT_RETRY_AFTER_MS = 1000;
+export const REQUEST_TIMEOUT_MS = 60_000;
+
+export function apiPath(strings: TemplateStringsArray, ...segments: string[]): string {
+  return strings.reduce(
+    (path, chunk, i) => path + chunk + (i < segments.length ? encodeURIComponent(segments[i]) : ''),
+    '',
+  );
+}
+
+export function parseRetryAfterMs(header: string | null, now: number = Date.now()): number {
+  if (!header) return DEFAULT_RETRY_AFTER_MS;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const retryAt = Date.parse(header);
+  return Number.isNaN(retryAt) ? DEFAULT_RETRY_AFTER_MS : Math.max(0, retryAt - now);
+}
+
+function odataString(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
 
 interface RequestOptions {
   params?: Record<string, string | number | undefined>;
@@ -53,20 +74,19 @@ export class ModusignClient {
     const parts: string[] = [];
 
     if (filters.status) {
-      parts.push(`status eq '${filters.status}'`);
+      parts.push(`status eq ${odataString(filters.status)}`);
     }
     if (filters.titleContains) {
-      const escaped = filters.titleContains.replace(/'/g, "''");
-      parts.push(`contains(title, '${escaped}')`);
+      parts.push(`contains(title, ${odataString(filters.titleContains)})`);
     }
     if (filters.createdAtFrom) {
-      parts.push(`createdAt ge '${filters.createdAtFrom}'`);
+      parts.push(`createdAt ge ${odataString(filters.createdAtFrom)}`);
     }
     if (filters.createdAtTo) {
-      parts.push(`createdAt le '${filters.createdAtTo}'`);
+      parts.push(`createdAt le ${odataString(filters.createdAtTo)}`);
     }
     if (filters.labelIds && filters.labelIds.length > 0) {
-      const ids = filters.labelIds.map((id) => `'${id}'`).join(', ');
+      const ids = filters.labelIds.map(odataString).join(', ');
       parts.push(`labelIds in (${ids})`);
     }
 
@@ -94,7 +114,11 @@ export class ModusignClient {
       ...options.headers,
     };
 
-    const fetchOptions: RequestInit = { method, headers };
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    };
 
     if (options.body !== undefined) {
       if (options.body instanceof FormData) {
@@ -108,13 +132,10 @@ export class ModusignClient {
     const response = await fetch(url.toString(), fetchOptions);
 
     if (response.status === 429 && retries > 0) {
-      const retryAfter = parseInt(
-        response.headers.get('X-Retry-After') ??
-        response.headers.get('Retry-After') ??
-        '1',
-        10,
+      const retryAfterMs = parseRetryAfterMs(
+        response.headers.get('X-Retry-After') ?? response.headers.get('Retry-After'),
       );
-      await this.sleep(retryAfter * 1000);
+      await this.sleep(retryAfterMs);
       return this.request<T>(method, path, options, retries - 1);
     }
 
